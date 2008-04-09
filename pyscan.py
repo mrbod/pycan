@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 from pycan import CanChannel
+import os
 
 def fmt(msg):
     return str(msg)
 
-if __name__ == '__main__':
+def main():
     import sys
     import time
     import getopt
+
+    sys.path = [os.getcwd()] + sys.path
 
     filterfile = None
     filter_func = None
@@ -48,18 +51,20 @@ if __name__ == '__main__':
 
     if filterfile:
         try:
-            s = 'import %s as filter' % filterfile
-            exec s
+            #s = 'import %s as filter' % filterfile
+            #exec s
+            filterdict = {}
+            execfile(filterfile, filterdict)
             try:
-                filter_func = filter.filter
-            except AttributeError, e:
+                filter_func = filterdict['filter']
+            except KeyError, e:
                 print >>sys.stderr, 'Using standard filter'
             try:
-                format_func = filter.format
-            except AttributeError, e:
+                format_func = filterdict['format']
+            except KeyError, e:
                 print >>sys.stderr, 'Using standard format'
-        except ImportError:
-            print >>sys.stderr, 'Unable to import filter file %s' % filterfile
+        except ImportError, e:
+            print >>sys.stderr, 'Unable to import filter file %s(%s)' % (filterfile, e)
             sys.exit(1)
 
     try:
@@ -81,3 +86,6 @@ if __name__ == '__main__':
                 time.sleep(0.05)
     except KeyboardInterrupt:
         pass
+
+if __name__ == '__main__':
+    main()

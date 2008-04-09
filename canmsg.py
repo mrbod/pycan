@@ -1,5 +1,5 @@
 STCAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
-STCAN_TYPE = ('OUT', 'IN', 'UNUSED2', 'UNUSED3', 'UNUSED4', 'MON', 'UNUSED6')
+STCAN_TYPE = ('OUT', 'IN', 'UNDEF2', 'UNDEF3', 'UNDEF4', 'MON', 'UNDEF6')
 
 class CanMsg(object):
     def __init__(self, id = 0, msg = [], flags = 0, time = 0):
