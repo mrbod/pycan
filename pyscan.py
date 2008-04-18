@@ -1,20 +1,15 @@
 #!/usr/bin/env python
-from pycan import CanChannel
 import os
+import sys
+import time
+import getopt
 
-def fmt(msg):
-    return str(msg)
+from pycan import CanChannel
 
 def main():
-    import sys
-    import time
-    import getopt
-
-    sys.path = [os.getcwd()] + sys.path
-
     filterfile = None
     filter_func = None
-    format_func = fmt
+    format_func = str
     bitrate = 125
     channel = 0
     address = []
@@ -51,8 +46,6 @@ def main():
 
     if filterfile:
         try:
-            #s = 'import %s as filter' % filterfile
-            #exec s
             filterdict = {}
             execfile(filterfile, filterdict)
             try:

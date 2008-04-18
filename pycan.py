@@ -78,6 +78,10 @@ class CanChannel(object):
             raise Exception('%d: %s' % (res, s.value))
         return None
 
+    def write(self, msg):
+        d = ''.join([chr(x) for x in msg.msg])
+        res = canlib32.canWrite(self.handle, msg.id, d, len(d), 0)
+
 def main():
     ch = CanChannel(int(sys.argv[1]))
     while True:
