@@ -3,18 +3,104 @@ import os
 import sys
 import time
 import getopt
+import signal
+import termios
+import fcntl
+import exceptions
+import canmsg
+import pycan
 
-from pycan import CanChannel
+filterfile = None
+filter_func = None
+format_func = str
+action_dict = {}
+bitrate = 125
+channel = 0
+address = []
+group = []
+types = []
+
+def dummy_action(ch):
+    #print 'dummy_action'
+    pass
+
+def child(w):
+    while True:
+        try:
+            time.sleep(0.01)
+            c = sys.stdin.read(1)
+            os.write(w, c)
+        except exceptions.IOError, e:
+            pass
+
+def parent(r, pid):
+    flags = pycan.canOPEN_EXCLUSIVE
+    #flags = pycan.canOPEN_EXCLUSIVE | pycan.canOPEN_REQUIRE_EXTENDED 
+    ch = pycan.CanChannel(channel, bitrate, flags)
+    while True:
+        m = ch.read()
+        if m:
+            if group and not (m.group() in group):
+                continue
+            if address and not (m.addr() in address):
+                continue
+            if types and not (m.type() in types):
+                continue
+            if filter_func and not filter_func(m):
+                continue
+            print format_func(m)
+        else:
+            sys.stdout.flush()
+            time.sleep(0.01)
+
+        if action_dict:
+            try:
+                c = os.read(r, 1)
+                action_dict.get(c, dummy_action)(ch)
+            except exceptions.OSError, e:
+                pass
+            except exceptions.TypeError, e:
+                print e
+            except Exception, e:
+                print type(e)
+                print e
+                raise
+
+def exit(pid):
+    if pid != 0:
+        os.kill(pid, signal.SIGKILL)
+        os.wait()
+
+def dofork():
+    if not action_dict:
+        parent(None, 0)
+        return
+    (r, w) = os.pipe()
+    oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
+    fcntl.fcntl(r, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
+    pid = os.fork()
+    try:
+        if pid == 0:
+            child(w)
+            pass
+        else:
+            parent(r, pid)
+    except KeyboardInterrupt:
+        exit(pid)
+    except Exception, e:
+        print e
+        exit(pid)
 
 def main():
-    filterfile = None
-    filter_func = None
-    format_func = str
-    bitrate = 125
-    channel = 0
-    address = []
-    group = []
-    types = []
+    global filterfile
+    global filter_func
+    global format_func
+    global action_dict
+    global bitrate
+    global channel
+    global address
+    global group
+    global types
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "c:b:a:g:t:f:")
@@ -45,40 +131,43 @@ def main():
             filterfile = o[1]
 
     if filterfile:
+        filterdict = canmsg.__dict__#{'CanMsg':canmsg.CanMsg}
         try:
-            filterdict = {}
             execfile(filterfile, filterdict)
-            try:
-                filter_func = filterdict['filter']
-            except KeyError, e:
-                print >>sys.stderr, 'Using standard filter'
-            try:
-                format_func = filterdict['format']
-            except KeyError, e:
-                print >>sys.stderr, 'Using standard format'
-        except ImportError, e:
-            print >>sys.stderr, 'Unable to import filter file %s(%s)' % (filterfile, e)
+        except IOError, e:
+            print >>sys.stderr, 'Filter file: %s' % e
             sys.exit(1)
+        try:
+            filter_func = filterdict['filter']
+        except KeyError, e:
+            print >>sys.stderr, 'Using standard filter'
+        try:
+            format_func = filterdict['format']
+        except KeyError, e:
+            print >>sys.stderr, 'Using standard format'
+        try:
+            action_dict = filterdict['action_dict']
+        except KeyError, e:
+            pass
 
     try:
-        ch = CanChannel(channel, bitrate)
-        while True:
-            m = ch.read()
-            if m:
-                if group and not (m.group() in group):
-                    continue
-                if address and not (m.addr() in address):
-                    continue
-                if types and not (m.type() in types):
-                    continue
-                if filter_func and not filter_func(m):
-                    continue
-                print format_func(m)
-            else:
-                sys.stdout.flush()
-                time.sleep(0.05)
+        dofork()
     except KeyboardInterrupt:
         pass
 
 if __name__ == '__main__':
-    main()
+    fd = sys.stdin.fileno()
+    oldattr = termios.tcgetattr(fd)
+    newattr = termios.tcgetattr(fd)
+    newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
+    termios.tcsetattr(fd, termios.TCSANOW, newattr)
+    try:
+        try:
+            oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
+
+            main()
+        finally:
+            fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
+    finally:
+        termios.tcsetattr(fd, termios.TCSANOW, oldattr)

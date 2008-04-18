@@ -80,7 +80,7 @@ class CanChannel(object):
 
     def write(self, msg):
         d = ''.join([chr(x) for x in msg.msg])
-        res = canlib32.canWrite(self.handle, msg.id, d, len(d), 0)
+        res = canlib32.canWrite(self.handle, msg.id, d, len(d), msg.flags)
 
 def main():
     ch = CanChannel(int(sys.argv[1]))
