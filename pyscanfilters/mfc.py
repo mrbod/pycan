@@ -1,3 +1,4 @@
+#!/bin/env python
 import time
 
 OUT = 0
@@ -162,9 +163,20 @@ def filter(msg):
 def format(msg):
     m = ', '.join(['%02X' % x for x in msg.msg])
     t = msg.time / 1000.0
-    try:
-        st = msg.stcan()
-    except:
-        st = 'NOT STCAN'
+    st = msg.stcan()
     return '%06d %08.3f (%03X:%s) [%s]: %s' % (cnt, t, msg.id, st, m, fmt(msg))
 
+def parse_uart():
+    import sys
+    import re
+    r  = re.compile(r'(\d+)\s(\S+)\s\([^\)]+\)\s[^:]+: (READ|WRITE)_UART1\s+\'[^\']*\'\s+\[(.+)\]')
+    for l in sys.stdin:
+        o = r.match(l)
+        if o:
+            print o.groups()
+
+def main():
+    parse_uart()
+
+if __name__ == '__main__':
+    main()
