@@ -1,5 +1,6 @@
 #!/bin/env python
 import time
+import sys
 
 OUT = 0
 IN = 1
@@ -174,6 +175,11 @@ def parse_uart():
         o = r.match(l)
         if o:
             print o.groups()
+
+def foo(channel):
+    sys.stdout.write('FOO!\n')
+
+action_dict = {'k':foo}
 
 def main():
     parse_uart()
