@@ -14,7 +14,7 @@ filterfile = None
 filter_func = None
 format_func = str
 action_dict = {}
-bitrate = 125
+bitrate = 250
 channel = 0
 address = []
 group = []
@@ -36,7 +36,12 @@ def parent(r, pid):
     flags = pycan.canOPEN_EXCLUSIVE
     #flags = pycan.canOPEN_EXCLUSIVE | pycan.canOPEN_REQUIRE_EXTENDED 
     ch = pycan.CanChannel(channel, bitrate, flags)
+    start = time.time()
     while True:
+        if time.time() - start > 0.1:
+            start = time.time()
+            action_dict.get('s', dummy_action)(ch)
+
         m = ch.read()
         if m:
             if group and not (m.group() in group):

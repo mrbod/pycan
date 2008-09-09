@@ -68,6 +68,6 @@ class CanMsg(object):
             m = fmt % tuple(self.msg)
         else:
             m = '[]'
-        fmt = '%03X %s %8.3f %d:%-32s f:%02X(%s)'
+        fmt = '%03X %-15s %8.3f %d:%-32s f:%02X(%s)'
         args = (self.id, self.stcan(), t, dlc, m, self.flags, self.sflags())
         return fmt % args
