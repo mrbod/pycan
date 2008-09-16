@@ -37,7 +37,7 @@ canOK = 0
 canERR_NOMSG = -2
 
 class CanChannel(object):
-    def __init__(self, channel, bitrate = canBITRATE_125K, flags = canOPEN_EXCLUSIVE):
+    def __init__(self, channel, bitrate = canBITRATE_125K, flags = canOPEN_EXCLUSIVE | canOPEN_ACCEPT_VIRTUAL):
         self.channel = c_int(channel)
         self.bitrate = c_int(bitrate)
         self.flags = c_int(flags)

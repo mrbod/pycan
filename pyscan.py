@@ -33,8 +33,7 @@ def child(w):
             pass
 
 def parent(r, pid):
-    flags = pycan.canOPEN_EXCLUSIVE
-    #flags = pycan.canOPEN_EXCLUSIVE | pycan.canOPEN_REQUIRE_EXTENDED 
+    flags = pycan.canOPEN_EXCLUSIVE | pycan.canOPEN_ACCEPT_VIRTUAL
     ch = pycan.CanChannel(channel, bitrate, flags)
     while True:
         m = ch.read()
