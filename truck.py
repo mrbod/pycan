@@ -151,7 +151,7 @@ def main():
         try:
             action_dict = filterdict['actions']
         except KeyError, e:
-            print >>sys.stderr, 'Using standard actions'
+            print >>sys.stderr, 'No actions registered'
 
     try:
         dofork()
