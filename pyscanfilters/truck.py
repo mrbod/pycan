@@ -28,7 +28,7 @@ def send_speed(channel):
 def foo(channel):
     sys.stdout.write('FOO!\n')
 
-action_dict = {'s':send_speed, 'i':inc_speed, 'd':dec_speed}
+actions = {'s':send_speed, 'i':inc_speed, 'd':dec_speed}
 
 def main():
     parse_uart()

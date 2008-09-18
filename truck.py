@@ -149,7 +149,7 @@ def main():
         except KeyError, e:
             print >>sys.stderr, 'Using standard format'
         try:
-            action_dict = filterdict['action_dict']
+            action_dict = filterdict['actions']
         except KeyError, e:
             print >>sys.stderr, 'Using standard actions'
 
