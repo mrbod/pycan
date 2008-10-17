@@ -105,7 +105,7 @@ def main():
         print 'Usage: %s [-c <channel>] [-b <bitrate>]' % (sys.argv[0],)
         print '\t-c channel, default %d' % channel
         print '\t-b bitrate, default %d' % bitrate
-        print '\t-f filter, load file as filter'
+        print '\t-f FILE, load FILE as config file'
         print '\t-a address to show, can be repeated'
         print '\t-g group to show, can be repeated'
         print '\t-t type to show, can be repeated'
