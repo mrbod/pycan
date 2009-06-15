@@ -34,22 +34,22 @@ def child(w):
         except exceptions.IOError, e:
             pass
 
+def msg_handler(m):
+    if group and not (m.group() in group):
+        continue
+    if address and not (m.addr() in address):
+        continue
+    if types and not (m.type() in types):
+        continue
+    if filter_func and not filter_func(m):
+        continue
+    print format_func(m)
+
 def parent(r, pid):
     flags = pycan.canOPEN_EXCLUSIVE | pycan.canOPEN_ACCEPT_VIRTUAL
-    ch = pycan.CanChannel(channel, bitrate, flags, silent)
+    ch = pycan.CanChannel(channel, bitrate, flags=flags, silent=silent, on_msg=msg_handler)
     while True:
-        m = ch.read()
-        if m:
-            if group and not (m.group() in group):
-                continue
-            if address and not (m.addr() in address):
-                continue
-            if types and not (m.type() in types):
-                continue
-            if filter_func and not filter_func(m):
-                continue
-            print format_func(m)
-        else:
+        if not ch.read()
             sys.stdout.flush()
             time.sleep(0.01)
 

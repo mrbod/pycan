@@ -42,7 +42,7 @@ canOK = 0
 canERR_NOMSG = -2
 
 class CanChannel(object):
-    def __init__(self, channel, bitrate = canBITRATE_125K, flags = canOPEN_EXCLUSIVE | canOPEN_ACCEPT_VIRTUAL, silent = False):
+    def __init__(self, channel, bitrate=canBITRATE_125K, flags=canOPEN_EXCLUSIVE | canOPEN_ACCEPT_VIRTUAL, on_msg=None, silent=False):
         self.channel = c_int(channel)
         self.bitrate = c_int(bitrate)
         self.flags = c_int(flags)
@@ -88,6 +88,8 @@ class CanChannel(object):
         if res == canOK:
             d = [ord(data[i]) for i in range(dlc.value)]
             m = CanMsg(id.value, d, flags.value, time.value - self.starttime, channel=self)
+            if on_msg:
+                on_msg(m)
             return m
         if res != canERR_NOMSG:
             s = create_string_buffer(128)
@@ -99,6 +101,8 @@ class CanChannel(object):
         d = ''.join([chr(x) for x in msg.msg])
         msg.time = canlib32.canReadTimer(self.handle) - self.starttime
         res = canlib32.canWrite(self.handle, msg.id, d, len(d), msg.flags)
+        if on_msg:
+            on_msg(m)
 
 def main():
     ch = CanChannel(int(sys.argv[1]))
@@ -110,13 +114,9 @@ def main():
         sys.stdout.flush()
         time.sleep(0.001)
 
-
-
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
         pass
-
-
 
