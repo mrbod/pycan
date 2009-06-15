@@ -33,11 +33,16 @@ canOPEN_REQUIRE_INIT_ACCESS = 0x0080
 canOPEN_NO_INIT_ACCESS = 0x0100
 canOPEN_ACCEPT_LARGE_DLC = 0x0200  # DLC can be greater than 8
 
+canDRIVER_NORMAL = 4
+canDRIVER_SILENT = 1
+canDRIVER_SELFRECEPTION = 8
+canDRIVER_OFF = 0
+
 canOK = 0
 canERR_NOMSG = -2
 
 class CanChannel(object):
-    def __init__(self, channel, bitrate = canBITRATE_125K, flags = canOPEN_EXCLUSIVE | canOPEN_ACCEPT_VIRTUAL):
+    def __init__(self, channel, bitrate = canBITRATE_125K, flags = canOPEN_EXCLUSIVE | canOPEN_ACCEPT_VIRTUAL, silent = False):
         self.channel = c_int(channel)
         self.bitrate = c_int(bitrate)
         self.flags = c_int(flags)
@@ -57,6 +62,18 @@ class CanChannel(object):
             s = create_string_buffer(128)
             canlib32.canGetErrorText(res, s, 128)
             raise Exception('%d: %s' % (res, s.value))
+        if silent:
+            res = canlib32.canSetBusOutputControl(self.handle, canDRIVER_SILENT)
+            if res != canOK:
+                s = create_string_buffer(128)
+                canlib32.canGetErrorText(res, s, 128)
+                raise Exception('%d: %s' % (res, s.value))
+        else:
+            res = canlib32.canSetBusOutputControl(self.handle, canDRIVER_NORMAL)
+            if res != canOK:
+                s = create_string_buffer(128)
+                canlib32.canGetErrorText(res, s, 128)
+                raise Exception('%d: %s' % (res, s.value))
 
     def __del__(self):
         canlib32.canClose(self.handle)
@@ -70,7 +87,7 @@ class CanChannel(object):
         res = canlib32.canRead(self.handle, byref(id), data, byref(dlc), byref(flags), byref(time))
         if res == canOK:
             d = [ord(data[i]) for i in range(dlc.value)]
-            m = CanMsg(id.value, d, flags.value, time.value - self.starttime)
+            m = CanMsg(id.value, d, flags.value, time.value - self.starttime, channel=self)
             return m
         if res != canERR_NOMSG:
             s = create_string_buffer(128)
@@ -80,6 +97,7 @@ class CanChannel(object):
 
     def write(self, msg):
         d = ''.join([chr(x) for x in msg.msg])
+        msg.time = canlib32.canReadTimer(self.handle) - self.starttime
         res = canlib32.canWrite(self.handle, msg.id, d, len(d), msg.flags)
 
 def main():

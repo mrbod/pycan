@@ -20,11 +20,12 @@ canMSGERR_BIT1 = 0x8000      # Sent rec, read dom
 flag_texts = {canMSG_RTR: 'RTR', canMSG_STD: 'STD', canMSG_EXT: 'EXT', canMSG_WAKEUP: 'WAKEUP', canMSG_NERR: 'NERR', canMSG_ERROR_FRAME: 'ERROR_FRAME', canMSG_TXACK: 'TXACK', canMSG_TXRQ: 'TXRQ', canMSGERR_HW_OVERRUN: 'HW_OVERRUN', canMSGERR_SW_OVERRUN: 'SW_OVERRUN', canMSGERR_STUFF: 'STUFF', canMSGERR_FORM: 'FORM', canMSGERR_CRC: 'CRC', canMSGERR_BIT0: 'BIT0', canMSGERR_BIT1: 'BIT1'}
 
 class CanMsg(object):
-    def __init__(self, id = 0, msg = [], flags = 0, time = 0):
+    def __init__(self, id=0, msg=[], flags=0, time=0, channel=None):
         self.id = id
         self.flags = flags
         self.time = time
         self.msg = msg
+        self.channel = channel
 
     def dlc(self):
         return len(self.msg) 

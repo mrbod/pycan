@@ -13,15 +13,17 @@ import pycan
 filterfile = None
 filter_func = None
 format_func = str
+exit_func = None
 action_dict = {}
 bitrate = 125
 channel = 0
 address = []
 group = []
 types = []
+silent = False
 
 def dummy_action(ch):
-    print 'dummy_action(%c)' % ch
+    print 'dummy_action(%s)' % ch
 
 def child(w):
     while True:
@@ -34,7 +36,7 @@ def child(w):
 
 def parent(r, pid):
     flags = pycan.canOPEN_EXCLUSIVE | pycan.canOPEN_ACCEPT_VIRTUAL
-    ch = pycan.CanChannel(channel, bitrate, flags)
+    ch = pycan.CanChannel(channel, bitrate, flags, silent)
     while True:
         m = ch.read()
         if m:
@@ -92,19 +94,22 @@ def main():
     global filterfile
     global filter_func
     global format_func
+    global exit_func
     global action_dict
     global bitrate
     global channel
     global address
     global group
     global types
+    global silent
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "c:b:a:g:t:f:")
+        opts, args = getopt.getopt(sys.argv[1:], "c:b:a:g:t:f:s")
     except getopt.GetoptError, e:
         print 'Usage: %s [-c <channel>] [-b <bitrate>]' % (sys.argv[0],)
         print '\t-c channel, default %d' % channel
         print '\t-b bitrate, default %d' % bitrate
+        print '\t-s silent, do not participate in CAN traffic'
         print '\t-f FILE, load FILE as config file'
         print '\t-a address to show, can be repeated'
         print '\t-g group to show, can be repeated'
@@ -126,6 +131,8 @@ def main():
             types.append(int(o[1]))
         elif o[0] == '-f':
             filterfile = o[1]
+        elif o[0] == '-s':
+            silent = True
 
     if filterfile:
         filterdict = canmsg.__dict__#{'CanMsg':canmsg.CanMsg}
@@ -146,6 +153,10 @@ def main():
             action_dict = filterdict['action_dict']
         except KeyError, e:
             print >>sys.stderr, 'Using standard actions'
+        try:
+            exit_func = filterdict['exit']
+        except KeyError, e:
+            print >>sys.stderr, 'No exit function specified'
 
     try:
         dofork()
@@ -163,7 +174,11 @@ if __name__ == '__main__':
             oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
             fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-            main()
+            try:
+                main()
+            finally:
+                if exit_func != None:
+                    exit_func()
         finally:
             fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
     finally:
