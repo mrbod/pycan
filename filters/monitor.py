@@ -12,14 +12,14 @@ MON = 5
 
 def filter(msg):
     if msg.type() == MON:
-        sys.stdout.write(chr(msg.msg[0]))
+        sys.stdout.write(chr(msg.data[0]))
         return False
     return True
 
 def send_char(ch, c):
     m = CanMsg()
-    m.id = 1 << 9 |  MON
-    m.msg = [ord(c)]
+    m.id = OUT << 9 |  MON
+    m.data = [ord(c)]
     ch.write(m)
 
 class MyDict(object):

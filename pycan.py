@@ -46,6 +46,7 @@ class CanChannel(object):
         self.channel = c_int(channel)
         self.bitrate = c_int(bitrate)
         self.flags = c_int(flags)
+        self.on_msg = on_msg
         self.handle = canlib32.canOpenChannel(self.channel, self.flags)
         if self.handle < 0:
             s = create_string_buffer(128)
@@ -86,10 +87,12 @@ class CanChannel(object):
         time = c_int()
         res = canlib32.canRead(self.handle, byref(id), data, byref(dlc), byref(flags), byref(time))
         if res == canOK:
+            T = canlib32.canReadTimer(self.handle)
             d = [ord(data[i]) for i in range(dlc.value)]
-            m = CanMsg(id.value, d, flags.value, time.value - self.starttime, channel=self)
-            if on_msg:
-                on_msg(m)
+            m = CanMsg(id.value, d, flags.value, T - self.starttime, channel=self)
+            #m = CanMsg(id.value, d, flags.value, time.value - self.starttime, channel=self)
+            if self.on_msg:
+                self.on_msg(m)
             return m
         if res != canERR_NOMSG:
             s = create_string_buffer(128)
@@ -98,11 +101,13 @@ class CanChannel(object):
         return None
 
     def write(self, msg):
-        d = ''.join([chr(x) for x in msg.msg])
-        msg.time = canlib32.canReadTimer(self.handle) - self.starttime
+        d = ''.join([chr(x) for x in msg.data])
         res = canlib32.canWrite(self.handle, msg.id, d, len(d), msg.flags)
-        if on_msg:
-            on_msg(m)
+        T = canlib32.canReadTimer(self.handle)
+        msg.time = T - self.starttime
+        msg.sent = True
+        if self.on_msg:
+            self.on_msg(msg)
 
 def main():
     ch = CanChannel(int(sys.argv[1]))

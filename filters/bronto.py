@@ -22,9 +22,9 @@ def bin(byte):
 def eq_data(a, b):
     if (a == None) or (b == None):
         return False
-    if len(a.msg) != len(b.msg):
+    if len(a.data) != len(b.data):
         return False
-    for ab, bb in zip(a.msg, b.msg):
+    for ab, bb in zip(a.data, b.data):
         if ab != bb:
             return False
     return True
@@ -34,7 +34,39 @@ def vconv(x):
 
 config_index = 100
 config_data = 0
-old_prim = None
+def application(msg):
+    global config_data
+    if msg.flags > 7:
+        return
+    if msg.addr() == address:
+        if msg.group() == SEC:
+            index = msg.data[1]
+            if index == 42:
+                #ambient light
+                m = CanMsg(id=(SEC << 9) | (msg.addr() << 3) | OUT, msg=[0, 43, 0, msg.data[3]])
+                msg.channel.write(m)
+                m.data[1] = 44
+                msg.channel.write(m)
+    else:
+        if msg.group() == PRIMIN:
+            m = CanMsg()
+            m.id = (PRIMOUT << 9) | (msg.addr() << 3) | OUT
+            m.data = msg.data[:]
+            msg.channel.write(m)
+            return
+            m.id = (CFG << 9) | (msg.addr() << 3) | OUT
+            m.data = [0, 99, 0, config_index]
+            msg.channel.write(m)
+        elif msg.group() == CFG:
+            index = msg.data[1]
+            if index == config_index:
+                #config_data = 5
+                config_data = (msg.data[2] << 8) + msg.data[3]
+                m = CanMsg()
+                m.id = (CFG << 9) | (msg.addr() << 3) | OUT
+                m.data = [0, config_index, (config_data >> 8) & 0xFF, config_data & 0xFF]
+                msg.channel.write(m)
+
 flags = False
 def filter(msg):
     global old_prim
@@ -47,45 +79,7 @@ def filter(msg):
         return False
     else:
         flags = False
-    if msg.addr() == address:
-        if msg.group() == PRIMIN:
-            return True
-            if eq_data(old_prim, msg):
-                return False
-            old_prim = msg
-        elif msg.group() == SEC:
-            index = msg.msg[1]
-            if index == 42:
-                #ambient light
-                m = CanMsg(id=(SEC << 9) | (msg.addr() << 3) | OUT, msg=[0, 43, 0, msg.msg[3]])
-                msg.channel.write(m)
-                print m
-                m.msg[1] = 44
-                msg.channel.write(m)
-                print m
-        return True
-    else:
-        if msg.group() == PRIMIN:
-            m = CanMsg()
-            m.id = (PRIMOUT << 9) | (msg.addr() << 3) | OUT
-            m.msg = msg.msg[:]
-            msg.channel.write(m)
-            print m
-            return True
-            m.id = (CFG << 9) | (msg.addr() << 3) | OUT
-            m.msg = [0, 99, 0, config_index]
-            msg.channel.write(m)
-            print m
-        elif msg.group() == CFG:
-            index = msg.msg[1]
-            if index == config_index:
-                #config_data = 5
-                config_data = (msg.msg[2] << 8) + msg.msg[3]
-                m = CanMsg()
-                m.id = (CFG << 9) | (msg.addr() << 3) | OUT
-                m.msg = [0, config_index, (config_data >> 8) & 0xFF, config_data & 0xFF]
-                msg.channel.write(m)
-        return True
+    return True
 
 def fmt_values(v):
     v = [(a << 8) + b for a,b in zip(v[0::2], v[1::2])]
@@ -94,15 +88,19 @@ def fmt_values(v):
 
 def format(msg):
     if msg.group() == SEC:
+        index = msg.data[1]
+        print msg
         if msg.type() == IN:
-            index = msg.msg[1]
-            print msg
-            return 'SEC INDEX(%d): %s' % (index, fmt_values(msg.msg[2:]))
+            return 'R SEC INDEX(%d): %s' % (index, fmt_values(msg.data[2:]))
+        else:
+            return 'W SEC INDEX(%d): %s' % (index, fmt_values(msg.data[2:]))
     if msg.group() == CFG:
+        index = msg.data[1]
+        print msg
         if msg.type() == IN:
-            index = msg.msg[1]
-            print msg
-            return 'CFG INDEX(%d): %s' % (index, fmt_values(msg.msg[2:]))
+            return 'R CFG INDEX(%d): %s' % (index, fmt_values(msg.data[2:]))
+        else:
+            return 'W CFG INDEX(%d): %s' % (index, fmt_values(msg.data[2:]))
     return str(msg)
 
 address = 2
@@ -118,7 +116,7 @@ class BThread(threading.Thread):
     def run(self):
         m = CanMsg()
         m.id = (PRIMOUT << 9) | (address << 3) | OUT
-        m.msg = [3, 0, 0x40, 0, 0]
+        m.data = [3, 0, 0x40, 0, 0]
         om = m
         Tprimary = time.time()
         Tamb = Tprimary
@@ -129,7 +127,6 @@ class BThread(threading.Thread):
                     Tprimary = T
                     self.__toggle_bit(m)
                     self.channel.write(m)
-                    print m
                 #if (T - Tamb) > 1.0:
                     #Tamb = T
                     #send_secondary(self.channel, 0x63, 42)
@@ -142,14 +139,14 @@ class BThread(threading.Thread):
             byte = self.bitno / 8
             bit = self.bitno % 8
             mask = (1 << bit)
-            val = m.msg[byte]
+            val = m.data[byte]
             if val & mask:
                 val = val & (0xFF & ~mask)
                 b = 0
             else:
                 val = val | mask
                 b = 1
-            m.msg[byte] = val
+            m.data[byte] = val
             print 'toggle_bit(%d) -> %d' % (self.bitno, b)
             self.bitno = None
 
@@ -170,7 +167,7 @@ index = 22
 value = 0
 config = CanMsg()
 config.id = (CFG << 9) | (address << 3) | OUT
-config.msg = []
+config.data = []
 
 def inc_index_1(ch):
     global index
@@ -225,16 +222,14 @@ def dec_value_100(ch):
 secondary = CanMsg()
 secondary.id = (SEC << 9) | (address << 3) | OUT
 def send_secondary(ch, i, val):
-    secondary.msg = [0, i, (val >> 8) & 0xFF, val & 0xFF]
+    secondary.data = [0, i, (val >> 8) & 0xFF, val & 0xFF]
     ch.write(secondary)
-    print secondary
 
 config = CanMsg()
 config.id = (CFG << 9) | (address << 3) | OUT
 def send_config(ch, i, val):
-    config.msg = [0, i, (val >> 8) & 0xFF, val & 0xFF]
+    config.data = [0, i, (val >> 8) & 0xFF, val & 0xFF]
     ch.write(config)
-    print config
 
 def toggle_bit(ch):
     if thread and thread.KeepAlive:
@@ -245,45 +240,40 @@ def toggle_bit(ch):
 def number_2_disp(ch):
     m = CanMsg()
     m.id = secondary.id
-    m.msg = [0, 26, ((index & 0x7) << 5) | ((index & 0x3) << 3), 0, (value >> 8) & 0xFF, value & 0xFF]
+    m.data = [0, 26, ((index & 0x7) << 5) | ((index & 0x3) << 3), 0, (value >> 8) & 0xFF, value & 0xFF]
     ch.write(m)
-    print m
 
 def text_2_disp(ch):
     m = CanMsg()
     m.id = secondary.id
-    m.msg = [0, 25, 0x80, 0x44, ord('R'), ord('D')]
+    m.data = [0, 25, 0x80, 0x44, ord('R'), ord('D')]
     ch.write(m)
-    print m
 
 def clear_screen(ch):
     m = CanMsg()
     m.id = secondary.id
-    m.msg = [0, 25, 0x40, 0, ord('R'), ord('D')]
+    m.data = [0, 25, 0x40, 0, ord('R'), ord('D')]
     ch.write(m)
-    print m
 
 def show_on_display(ch):
     m = CanMsg()
     m.id = secondary.id
     s = 'antal6'
-    m.msg = [0, 30] + [ord(c) for c in s]
+    m.data = [0, 30] + [ord(c) for c in s]
     ch.write(m)
-    print m
 
 def show_on_display2(ch):
     m = CanMsg()
     m.id = secondary.id
     s = '$ES\0'
-    m.msg = [0, 30] + [ord(c) for c in s]
+    m.data = [0, 30] + [ord(c) for c in s]
     ch.write(m)
     s = '$LC1,5'
-    m.msg = [0, 30] + [ord(c) for c in s]
+    m.data = [0, 30] + [ord(c) for c in s]
     ch.write(m)
     s = 'BArnEY'
-    m.msg = [0, 30] + [ord(c) for c in s]
+    m.data = [0, 30] + [ord(c) for c in s]
     ch.write(m)
-    print m
 
 action_dict = {
         'p':primary,

@@ -13,6 +13,7 @@ import pycan
 filterfile = None
 filter_func = None
 format_func = str
+appl_func = None
 exit_func = None
 action_dict = {}
 bitrate = 125
@@ -36,35 +37,39 @@ def child(w):
 
 def msg_handler(m):
     if group and not (m.group() in group):
-        continue
+        return
     if address and not (m.addr() in address):
-        continue
+        return
     if types and not (m.type() in types):
-        continue
-    if filter_func and not filter_func(m):
-        continue
-    print format_func(m)
+        return
+    if filter_func:
+        if filter_func(m):
+            print format_func(m)
+    else:
+        print format_func(m)
+    if appl_func:
+        appl_func(m)
 
 def parent(r, pid):
     flags = pycan.canOPEN_EXCLUSIVE | pycan.canOPEN_ACCEPT_VIRTUAL
     ch = pycan.CanChannel(channel, bitrate, flags=flags, silent=silent, on_msg=msg_handler)
     while True:
-        if not ch.read()
+        if not ch.read():
             sys.stdout.flush()
-            time.sleep(0.01)
-
-        if action_dict:
-            try:
-                c = os.read(r, 1)
-                action_dict.get(c, dummy_action)(ch)
-            except exceptions.OSError, e:
-                pass
-            except exceptions.TypeError, e:
-                print e
-            except Exception, e:
-                print type(e)
-                print e
-                raise
+            if action_dict:
+                try:
+                    c = os.read(r, 1)
+                    action_dict.get(c, dummy_action)(ch)
+                except exceptions.OSError, e:
+                    pass
+                except exceptions.TypeError, e:
+                    print e
+                except Exception, e:
+                    print type(e)
+                    print e
+                    raise
+            else:
+                time.sleep(0.01)
 
 def exit(pid):
     if pid != 0:
@@ -90,10 +95,24 @@ def dofork():
         print e
         exit(pid)
 
+def usage():
+    prg_name = os.path.basename(sys.argv[0])
+    print 'Usage: %s [options]' % (prg_name,)
+    print
+    print 'Options:'
+    print '\t-c channel, default %d' % channel
+    print '\t-b bitrate, default %d' % bitrate
+    print '\t-s silent, do not participate in CAN traffic'
+    print '\t-f FILE, load FILE as config file'
+    print '\t-a address to show, can be repeated'
+    print '\t-g group to show, can be repeated'
+    print '\t-t type to show, can be repeated'
+
 def main():
     global filterfile
     global filter_func
     global format_func
+    global appl_func
     global exit_func
     global action_dict
     global bitrate
@@ -104,22 +123,18 @@ def main():
     global silent
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "c:b:a:g:t:f:s")
+        opts, args = getopt.getopt(sys.argv[1:], "hc:b:a:g:t:f:s")
     except getopt.GetoptError, e:
-        print 'Usage: %s [-c <channel>] [-b <bitrate>]' % (sys.argv[0],)
-        print '\t-c channel, default %d' % channel
-        print '\t-b bitrate, default %d' % bitrate
-        print '\t-s silent, do not participate in CAN traffic'
-        print '\t-f FILE, load FILE as config file'
-        print '\t-a address to show, can be repeated'
-        print '\t-g group to show, can be repeated'
-        print '\t-t type to show, can be repeated'
+        usage()
         print
         print >>sys.stderr, e
         sys.exit(1)
 
     for o in opts:
-        if o[0] == '-c':
+        if o[0] == '-h':
+            usage()
+            sys.exit(0)
+        elif o[0] == '-c':
             channel = int(o[1])
         elif o[0] == '-b':
             bitrate = int(o[1])
@@ -153,6 +168,10 @@ def main():
             action_dict = filterdict['action_dict']
         except KeyError, e:
             print >>sys.stderr, 'Using standard actions'
+        try:
+            appl_func = filterdict['application']
+        except KeyError, e:
+            print >>sys.stderr, 'No application defined'
         try:
             exit_func = filterdict['exit']
         except KeyError, e:

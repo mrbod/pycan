@@ -54,7 +54,7 @@ flag_texts = {
         }
 
 class CanMsg(object):
-    def __init__(self, id=0, data=[], flags=0, time=0, channel=None, dlc=None):
+    def __init__(self, id=0, data=[], flags=0, time=0, channel=None, dlc=None, sent=False):
         if isinstance(data, type(self)):
             self.id = data.id
             self.data = [b for b in data.data]
@@ -71,6 +71,7 @@ class CanMsg(object):
             else:
                 self.data = self.data[0:dlc]
         self.channel = channel
+        self.sent = sent
 
     def dlc(self):
         return len(self.data) 
@@ -125,8 +126,12 @@ class CanMsg(object):
             m = fmt % tuple(self.data)
         else:
             m = '[]'
-        fmt = '%03X %-15s %8.3f %d:%-32s f:%02X(%s)'
-        args = (self.id, self.stcan(), t, dlc, m, self.flags, self.sflags())
+        if self.sent:
+            direction = 'W'
+        else:
+            direction = 'R'
+        fmt = '%s %03X %-15s %8.3f %d:%-32s f:%02X(%s)'
+        args = (direction, self.id, self.stcan(), t, dlc, m, self.flags, self.sflags())
         return fmt % args
 
     def __repr__(self):
