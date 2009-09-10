@@ -119,7 +119,6 @@ class CanMsg(object):
         d[s+1] = word & 0xFF
 
     def __str__(self):
-        t = self.time / 1000.0
         dlc = self.dlc()
         if dlc:
             fmt = '[%02X' + ', %02X' * (dlc - 1) + ']'
@@ -131,7 +130,7 @@ class CanMsg(object):
         else:
             direction = 'R'
         fmt = '%s %03X %-15s %8.3f %d:%-32s f:%02X(%s)'
-        args = (direction, self.id, self.stcan(), t, dlc, m, self.flags, self.sflags())
+        args = (direction, self.id, self.stcan(), self.time, dlc, m, self.flags, self.sflags())
         return fmt % args
 
     def __repr__(self):
