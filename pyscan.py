@@ -150,7 +150,7 @@ def main():
             silent = True
 
     if filterfile:
-        filterdict = canmsg.__dict__#{'CanMsg':canmsg.CanMsg}
+        filterdict = canmsg.__dict__
         try:
             execfile(filterfile, filterdict)
         except IOError, e:
