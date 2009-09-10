@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import canchannel
 import sys
 from ctypes import *
 import time
@@ -41,12 +42,11 @@ canDRIVER_OFF = 0
 canOK = 0
 canERR_NOMSG = -2
 
-class CanChannel(object):
+class KvaserCanChannel(canchannel.CanChannel):
     def __init__(self, channel, bitrate=canBITRATE_125K, flags=canOPEN_EXCLUSIVE | canOPEN_ACCEPT_VIRTUAL, on_msg=None, silent=False):
         self.channel = c_int(channel)
         self.bitrate = c_int(bitrate)
         self.flags = c_int(flags)
-        self.on_msg = on_msg
         self.handle = canlib32.canOpenChannel(self.channel, self.flags)
         if self.handle < 0:
             s = create_string_buffer(128)
@@ -57,7 +57,6 @@ class CanChannel(object):
             s = create_string_buffer(128)
             canlib32.canGetErrorText(res, s, 128)
             raise Exception('%d: %s' % (res, s.value))
-        self.starttime = canlib32.canReadTimer(self.handle)
         res = canlib32.canBusOn(self.handle)
         if res != canOK:
             s = create_string_buffer(128)
@@ -75,11 +74,15 @@ class CanChannel(object):
                 s = create_string_buffer(128)
                 canlib32.canGetErrorText(res, s, 128)
                 raise Exception('%d: %s' % (res, s.value))
+        canchannel.CanChannel.__init__(self, on_msg)
+
+    def gettime(self):
+        return canlib32.canReadTimer(self.handle)
 
     def __del__(self):
         canlib32.canClose(self.handle)
 
-    def read(self):
+    def do_read(self):
         id = c_int()
         data = create_string_buffer(8)
         dlc = c_int()
@@ -87,12 +90,9 @@ class CanChannel(object):
         time = c_int()
         res = canlib32.canRead(self.handle, byref(id), data, byref(dlc), byref(flags), byref(time))
         if res == canOK:
-            T = canlib32.canReadTimer(self.handle)
+            T = self.gettime() - self.starttime
             d = [ord(data[i]) for i in range(dlc.value)]
-            m = CanMsg(id.value, d, flags.value, T - self.starttime, channel=self)
-            #m = CanMsg(id.value, d, flags.value, time.value - self.starttime, channel=self)
-            if self.on_msg:
-                self.on_msg(m)
+            m = CanMsg(id.value, d, flags.value, T, channel=self)
             return m
         if res != canERR_NOMSG:
             s = create_string_buffer(128)
@@ -100,17 +100,13 @@ class CanChannel(object):
             raise Exception('%d: %s' % (res, s.value))
         return None
 
-    def write(self, msg):
+    def do_write(self, msg):
         d = ''.join([chr(x) for x in msg.data])
         res = canlib32.canWrite(self.handle, msg.id, d, len(d), msg.flags)
-        T = canlib32.canReadTimer(self.handle)
-        msg.time = T - self.starttime
-        msg.sent = True
-        if self.on_msg:
-            self.on_msg(msg)
+        msg.time = self.gettime() - self.starttime
 
 def main():
-    ch = CanChannel(int(sys.argv[1]))
+    ch = KvaserCanChannel(int(sys.argv[1]))
     while True:
         m = ch.read()
         while m:
