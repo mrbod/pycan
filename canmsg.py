@@ -136,8 +136,10 @@ class CanMsg(object):
             direction = 'W'
         else:
             direction = 'R'
-        fmt = '%s %03X %-15s %8.3f %d:%-32s f:%02X(%s)'
-        args = (direction, self.id, self.stcan(), self.time, dlc, m, self.flags, self.sflags())
+        #fmt = '%s %03X %-15s %8.3f %d:%-32s f:%02X(%s)'
+        #args = (direction, self.id, self.stcan(), self.time, dlc, m, self.flags, self.sflags())
+        fmt = '%s %03X %-15s %8.3f %d:%-32s'
+        args = (direction, self.id, self.stcan(), self.time, dlc, m)
         return fmt % args
 
     def __repr__(self):
