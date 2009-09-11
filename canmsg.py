@@ -1,5 +1,12 @@
 STCAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
 STCAN_TYPE = ('OUT', 'IN', 'UNDEF2', 'UNDEF3', 'UNDEF4', 'MON', 'UNDEF6')
+GROUP_POUT = 0
+GROUP_PIN = 1
+GROUP_SEC = 2
+GROUP_CFG = 3
+TYPE_OUT = 0
+TYPE_IN = 1
+TYPE_MON = 5
 
 canMSG_RTR = 0x0001      # Message is a remote request
 canMSG_STD = 0x0002      # Message has a standard ID

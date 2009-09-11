@@ -19,6 +19,7 @@ class CanChannel(object):
     def read(self):
         m = self.do_read()
         if m:
+            m.channel = self
             if self.on_msg:
                 self.on_msg(m)
         return m
@@ -28,6 +29,7 @@ class CanChannel(object):
 
     def write(self, msg):
         self.do_write(msg)
+        msg.channel = self
         msg.sent = True
         if self.on_msg:
             self.on_msg(msg)

@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+import getopt
 import canchannel
 import sys
 from ctypes import *
 import time
-from canmsg import CanMsg
+import canmsg
+import interface
 
 if sys.platform == 'linux2':
     canlib32 = CDLL('libcanlib.so')
@@ -92,7 +94,7 @@ class KvaserCanChannel(canchannel.CanChannel):
         if res == canOK:
             T = self.gettime() - self.starttime
             d = [ord(data[i]) for i in range(dlc.value)]
-            m = CanMsg(id.value, d, flags.value, T, channel=self)
+            m = canmsg.CanMsg(id.value, d, flags.value, T, channel=self)
             return m
         if res != canERR_NOMSG:
             s = create_string_buffer(128)
@@ -105,8 +107,71 @@ class KvaserCanChannel(canchannel.CanChannel):
         res = canlib32.canWrite(self.handle, msg.id, d, len(d), msg.flags)
         msg.time = self.gettime() - self.starttime
 
+def usage():
+    prg_name = os.path.basename(sys.argv[0])
+    print 'Usage: %s [options]' % (prg_name,)
+    print
+    print 'Options:'
+    print '\t-c channel, default %d' % channel
+    print '\t-b bitrate, default %d' % bitrate
+    print '\t-s silent, do not participate in CAN traffic'
+    print '\t-f FILE, load FILE as config file'
+    print '\t-a address to show, can be repeated'
+    print '\t-g group to show, can be repeated'
+    print '\t-t type to show, can be repeated'
+
+class KvaserOptions():
+    def __init__(self):
+        self.channel = 0
+        self.bitrate = canBITRATE_125K
+        self.silent = False
+        self.actions = None
+        self.handler = None
+
+        try:
+            opts, args = getopt.getopt(sys.argv[1:], "hc:b:a:g:t:f:s")
+        except getopt.GetoptError, e:
+            usage()
+            print
+            print >>sys.stderr, e
+            sys.exit(1)
+
+        filterfile = None
+
+        for o in opts:
+            if o[0] == '-h':
+                usage()
+                sys.exit(0)
+            elif o[0] == '-c':
+                self.channel = int(o[1])
+            elif o[0] == '-b':
+                self.bitrate = int(o[1])
+            elif o[0] == '-f':
+                filterfile = o[1]
+            elif o[0] == '-s':
+                self.silent = True
+
+        if filterfile:
+            filterdict = canmsg.__dict__
+            try:
+                execfile(filterfile, filterdict)
+            except IOError, e:
+                print >>sys.stderr, 'Filter file: %s' % e
+                sys.exit(1)
+            try:
+                self.handler = filterdict['handler']
+            except KeyError, e:
+                print >>sys.stderr, 'Using standard format'
+            try:
+                self.actions = filterdict['actions']
+            except KeyError, e:
+                print >>sys.stderr, 'Using standard actions'
+
 def main():
-    ch = KvaserCanChannel(int(sys.argv[1]))
+    o = KvaserOptions()
+    flags = canOPEN_EXCLUSIVE | canOPEN_ACCEPT_VIRTUAL
+    ch = KvaserCanChannel(o.channel, bitrate=o.bitrate, silent=o.silent, on_msg=o.handler)
+    interface.main(ch, o.actions)
     while True:
         m = ch.read()
         while m:
