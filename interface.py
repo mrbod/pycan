@@ -8,21 +8,22 @@ import termios
 import fcntl
 import exceptions
 
-input_handler = None
-
-def set_input_handler(handler):
-    global input_handler
-    input_handler = handler
+def debug(txt):
+    sys.stdout.write(txt)
+    sys.stdout.flush()
 
 def child(w):
-    while True:
-        try:
-            time.sleep(0.01)
-            c = sys.stdin.read(1)
-            os.write(w, c)
-        except exceptions.IOError, e:
-            pass
-    sys.stderr.write('********** CHILD GONE *********\n')
+    debug('******* CHILD STARTING\n')
+    try:
+        while True:
+            try:
+                time.sleep(0.01)
+                c = sys.stdin.read(1)
+                os.write(w, c)
+            except exceptions.IOError, e:
+                pass
+    finally:
+        debug('******* CHILD GONE\n')
 
 def parent(channel_class, options, r):
     oldflags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
@@ -30,17 +31,15 @@ def parent(channel_class, options, r):
 
     ch = channel_class(options)
 
-    if input_handler == None:
-        while True:
-            if not ch.read():
-                time.sleep(0.01)
-    else:
+    debug('******* PARENT STARTING\n')
+    try:
         while True:
             if not ch.read():
                 sys.stdout.flush()
                 try:
                     c = os.read(r, 1)
-                    input_handler(ch, c)
+                    if c:
+                        ch.action(c)
                 except exceptions.OSError, e:
                     pass
                 except exceptions.TypeError, e:
@@ -49,6 +48,8 @@ def parent(channel_class, options, r):
                     print type(e)
                     print e
                     raise
+    finally:
+        debug('******* PARENT GONE\n')
 
 def exit(pid):
     if pid != 0:

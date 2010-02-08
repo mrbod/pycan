@@ -61,7 +61,7 @@ flag_texts = {
         }
 
 class CanMsg(object):
-    def __init__(self, id=0, data=[], flags=0, time=0, channel=None, dlc=None, sent=False):
+    def __init__(self, id=0, data=[], flags=canMSG_STD, time=0, channel=None, dlc=None, sent=False):
         if isinstance(data, type(self)):
             self.id = data.id
             self.data = [b for b in data.data]
@@ -153,4 +153,17 @@ class CanMsg(object):
             f = '0'
         vals = (m, n, self.id, str(self.data), f, self.time)
         return '%s.%s(id=%d, data=%s, flags=%s, time=%d)' % vals
+
+    def __eq__(self, other):
+        if self.id != other.id:
+            return False
+        if len(self.data) != len(other.data):
+            return False
+        for i in range(len(self.data)):
+            if self.data[i] != other.data[i]:
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 

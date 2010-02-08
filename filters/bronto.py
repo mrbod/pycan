@@ -5,6 +5,7 @@ import sys
 import os
 import signal
 import threading
+from canmsg import CanMsg
 
 OUT = 0
 IN = 1
@@ -297,6 +298,12 @@ action_dict = {
         'd':show_on_display,
         'D':show_on_display2,
         }
+
+def action(channel, c):
+    if action_dict.has_key(c):
+        action_dict[c](channel)
+    else:
+        sys.stderr.write('No action for key <%c>\n' % c)
 
 def exit():
     if thread != None:

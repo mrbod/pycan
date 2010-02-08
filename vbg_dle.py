@@ -45,8 +45,7 @@ class DLEHandler(object):
 
     def frame2can(self, frame):
         id = (frame[0] << 8) + frame[1]
-        data = frame[2:-1]
-        return canmsg.CanMsg(id=id, data=data)
+        return canmsg.CanMsg(id=id, data=frame[2:])
 
     def can2frame(self, m):
         frame = []

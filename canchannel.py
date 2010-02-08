@@ -6,18 +6,57 @@ import canmsg
 import optparse
 import interface
 
-optionparser = optparse.OptionParser()
+def debug(str):
+    sys.stdout.write(str)
+    sys.stdout.flush()
 
-msg_filter = None
+def script_callback(option, optstr, value, parser):
+    err = ''
+    s_handler = 'handler'
+    s_action = 'action'
+    try:
+        basedict = {}
+        execfile(value, basedict)
+        d = {}
+        setattr(parser.values, option.dest, d)
+        d[s_handler] = basedict.get(s_handler, None)
+        d[s_action] = basedict.get(s_action, None)
+        if d[s_handler] == None:
+            err = 'No \'%s\' function specified in \'%s\'.' % (s_handler, value)
+        elif d[s_action] == None:
+            err = 'No \'%s\' function specified in \'%s\'.' % (s_action, value)
+    except IOError, e:
+        err = 'Filter file: %s' % e
+    if err <> '':
+        raise optparse.OptionValueError(err)
 
-def set_msg_filter(filter):
-    global msg_filter
-    msg_filter = filter
+class CanChannelOptions(optparse.OptionParser):
+    def __init__(self):
+        print 'CanChannelOptions.__init__'
+        optparse.OptionParser.__init__(self)
+        self.add_options()
+        self.parse_args()
+
+    def add_options(self):
+        print 'CanChannelOptions.add_options'
+        self.add_option(
+                '--script',
+                dest='script', type='string', default=None,
+                action='callback', callback=script_callback,
+                help='python script for handling of sent and received messages and handling of user input',
+                metavar='FILE')
 
 class CanChannel(object):
     def __init__(self, options):
+        print options.values
         self.starttime = time.time()
         self.options = options
+        self.action_handler = None
+        self.msg_handler = None
+        self.T0 = self.starttime
+        if self.options.values.script:
+            self.action_handler = self.options.values.script.get('action', None)
+            self.msg_handler = self.options.values.script.get('handler', None)
     
     def open(self):
         self.starttime = self.gettime()
@@ -32,16 +71,20 @@ class CanChannel(object):
         return time.time()
 
     def do_read(self):
-        m = canmsg.CanMsg()
-        m.time = self.gettime() - self.starttime
-        return m
+        T = self.gettime()
+        if T - self.T0 > 2:
+            self.T0 = T
+            m = canmsg.CanMsg()
+            m.time = T - self.starttime
+            return m
+        return None
 
     def read(self):
         m = self.do_read()
         if m:
             m.channel = self
-            if msg_filter:
-                msg_filter(m)
+            if self.msg_handler:
+                self.msg_handler(m)
         return m
 
     def do_write(self, msg):
@@ -51,48 +94,17 @@ class CanChannel(object):
         self.do_write(msg)
         msg.channel = self
         msg.sent = True
-        if msg_filter:
-            msg_filter(msg)
+        if self.msg_handler:
+            self.msg_handler(msg)
 
-    def user_action(self, key):
-        if self.on_action:
-            self.on_action(key)
-
-def msghandler(m):
-    print m
-
-def parse_opts():
-    optionparser.add_option(
-            '-f', '--filter',
-            dest='filter',
-            help='python script for handling of sent and received messages and handling of user input',
-            metavar='FILE')
-    (o, args) = optionparser.parse_args()
-    if o.filter != None:
-        try:
-            basedict = {}
-            execfile(o.filter, basedict)
-            try:
-                filter = basedict['filter']
-                set_msg_filter(filter)
-            except KeyError, e:
-                s = 'No \'filter\' function specified in \'%s\'.' % o.filter
-                print >>sys.stderr, s
-            try:
-                input = basedict['input']
-                interface.set_input_handler(input)
-            except KeyError, e:
-                s = 'No \'input\' function specified in \'%s\'.' % o.filter
-                print >>sys.stderr, s
-        except IOError, e:
-            print >>sys.stderr, 'Filter file: %s' % e
-            sys.exit(1)
-    return o
-
+    def action(self, key):
+        if self.action_handler:
+            self.action_handler(self, key)
+        else:
+            sys.stderr.write('No actions defined\n')
 
 def main(channel_class):
-    o = parse_opts()
-    interface.main(channel_class, o)
+    interface.main(channel_class, CanChannelOptions())
 
 if __name__ == '__main__':
     try:

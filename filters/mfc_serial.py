@@ -213,11 +213,22 @@ def load_uart(ch):
 
 log = True
 T0 = time.time()
+old_pin = canmsg.CanMsg()
+old_pout = canmsg.CanMsg()
 def filter(msg):
     global T0
+    global old_pin, old_pout
     if log:
-        print msg
-        print fmt(msg)
+        if msg.group() == canmsg.GROUP_POUT:
+            if msg != old_pout:
+                print msg
+                old_pout = msg
+        elif msg.group() == canmsg.GROUP_PIN:
+            if msg != old_pin:
+                print msg
+                old_pin = msg
+        else:
+            print fmt(msg)
     if msg.sent:
         pass
     else:
