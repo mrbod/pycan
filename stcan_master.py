@@ -6,55 +6,41 @@ import threading
 import kvaser
 
 class StCanMaster(kvaser.KvaserCanChannel):
-    def __init__(self, channel=0, silent=False):
+    def __init__(self, channel=0, primary_size=0, address=0):
+        self.message_queue = []
         self.state = 'IDLE'
         self.action_handler_T = time.time()
-        self.address = 8
+        self.address = address
         self.index = 0
         self.value = 0
-        self.send_text = False
         self.primary_answer = False
         self.send_primary = False
         id = (self.address << 3)
-        self.primary = canmsg.CanMsg(id=id, data=[0,0,0,0,0])
+        self.primary = canmsg.CanMsg(id=id, data=primary_size*[0])
         self.exception = None
         self.thread = threading.Thread(target=self.run)
         self.run_thread = True
         self.thread.start()
-        kvaser.KvaserCanChannel.__init__(self, silent=silent, channel=channel, bitrate=kvaser.canBITRATE_125K)
+        kvaser.KvaserCanChannel.__init__(self, silent=False, channel=channel, bitrate=kvaser.canBITRATE_125K)
 
     def run(self):
         try:
             while self.run_thread:
-                if self.send_text:
-                    self.send_text = False
-                    self.write_text('10203040', 0)
-                    self.write_text('1020304 ', 1)
                 if self.send_primary:
                     self.send_primary = False
                     self.write(self.primary)
-                else:
-                    if time.time() - self.action_handler_T > 5.0:
-                        self.state = 'IDLE'
+                if time.time() - self.action_handler_T > 5.0:
+                    self.state = 'IDLE'
+                if len(self.message_queue) > 0:
+                    m = self.message_queue.pop(0)
+                    self.write(m)
+
         except Exception, e:
             self.exception = e
             raise
 
-    def write_text(self, txt, row=0):
-        m = canmsg.CanMsg()
-        m.id = (canmsg.GROUP_SEC << 9) | (self.address << 3) | canmsg.TYPE_OUT
-        m.data = [0, 25, 0, 64*row, 0, 0]
-        self.write(m)
-        m.data[3] = 127
-        for i in range(0, len(txt), 2):
-            m.data[4] = ord(txt[i])
-            m.data[5] = ord(txt[i + 1])
-            self.write(m)
-
-    def get_index(self, value=None):
-        if value != None:
-            self.index = self.index * 10 + value
-        print 'index>', self.index
+    def send(self, m):
+        self.message_queue.append(m)
 
     def action_handler(self, c):
         self.action_handler_T = time.time()
@@ -63,8 +49,6 @@ class StCanMaster(kvaser.KvaserCanChannel):
                 self.send_primary = True
             elif c == 'P':
                 self.primary_answer = not self.primary_answer
-            elif c == 'k':
-                self.send_text = True
             elif c == 'i':
                 self.index = 0
                 self.state = 'INDEX'
@@ -121,14 +105,14 @@ class StCanMaster(kvaser.KvaserCanChannel):
         sys.stdout.write(str)
         sys.stdout.flush()
 
-if __name__ == '__main__':
-    silent = False
-    for o in sys.argv[1:]:
-        if o == '-s':
-            silent = True
-    c = StCanMaster(2, silent=silent)
+def main(channel):
     try:
-        c.open()
-        kvaser.main(c)
+        channel.open()
+        kvaser.main(channel)
     finally:
-        c.exit_handler()
+        channel.exit_handler()
+
+if __name__ == '__main__':
+    c = StCanMaster(2, silent=silent)
+    main(c)
+
