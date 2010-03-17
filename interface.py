@@ -25,21 +25,21 @@ def child(w):
     finally:
         debug('******* CHILD GONE\n')
 
-def parent(channel_class, options, r):
+def parent(channel, r):
     oldflags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
     fcntl.fcntl(r, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
-
-    ch = channel_class(options)
 
     debug('******* PARENT STARTING\n')
     try:
         while True:
-            if not ch.read():
+            if not channel.read():
                 sys.stdout.flush()
                 try:
                     c = os.read(r, 1)
                     if c:
-                        ch.action(c)
+                        channel.action_handler(c)
+                    else:
+                        time.sleep(0.001)
                 except exceptions.OSError, e:
                     pass
                 except exceptions.TypeError, e:
@@ -49,6 +49,7 @@ def parent(channel_class, options, r):
                     print e
                     raise
     finally:
+        channel.exit_handler()
         debug('******* PARENT GONE\n')
 
 def exit(pid):
@@ -56,23 +57,22 @@ def exit(pid):
         os.kill(pid, signal.SIGKILL)
         os.wait()
 
-fd = sys.stdin.fileno()
-
-def dofork(channel_class, options):
+def dofork(channel):
     (r, w) = os.pipe()
     pid = os.fork()
     try:
         if pid == 0:
             child(w)
         else:
-            parent(channel_class, options, r)
+            parent(channel, r)
     except KeyboardInterrupt:
         exit(pid)
     except Exception, e:
         print e
         exit(pid)
 
-def main(channel_class, options):
+def main(channel):
+    fd = sys.stdin.fileno()
     oldattr = termios.tcgetattr(fd)
     newattr = termios.tcgetattr(fd)
     newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
@@ -82,7 +82,7 @@ def main(channel_class, options):
             oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
             fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
             try:
-                dofork(channel_class, options)
+                dofork(channel)
             except OSError:
                 pass
             except KeyboardInterrupt:

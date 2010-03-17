@@ -1,5 +1,5 @@
 STCAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
-STCAN_TYPE = ('OUT', 'IN', 'UNDEF2', 'UNDEF3', 'UNDEF4', 'MON', 'UNDEF6')
+STCAN_TYPE = ('OUT', 'IN', 'UD2', 'UD3', 'UD4', 'MON', 'UD6')
 GROUP_POUT = 0
 GROUP_PIN = 1
 GROUP_SEC = 2
@@ -93,7 +93,7 @@ class CanMsg(object):
         try:
             return STCAN_GROUP[self.group()]
         except:
-            return 'GU'
+            return '**'
 
     def sflags(self):
         sf = []
@@ -109,10 +109,11 @@ class CanMsg(object):
         try:
             return STCAN_TYPE[self.type()]
         except:
-            return 'TU'
+            return '**'
 
     def stcan(self):
-        return '%4s,%02X,%-3s' % (self.sgroup(), self.addr(), self.stype())
+        fmt = '{0:>4s},{1:02X},{2:<3s}'
+        return fmt.format(self.sgroup(), self.addr(), self.stype())
 
     def get_word(self, index):
         d = self.data
@@ -125,22 +126,20 @@ class CanMsg(object):
         d[s] = (word >> 8) & 0xFF
         d[s+1] = word & 0xFF
 
+    def data_str(self):
+        t = ['{0:02X}'.format(d) for d in self.data]
+        return '[' + ', '.join(t) + ']'
+
     def __str__(self):
         dlc = self.dlc()
-        if dlc:
-            fmt = '[%02X' + ', %02X' * (dlc - 1) + ']'
-            m = fmt % tuple(self.data)
-        else:
-            m = '[]'
         if self.sent:
             direction = 'W'
         else:
             direction = 'R'
-        #fmt = '%s %03X %-15s %8.3f %d:%-32s f:%02X(%s)'
-        #args = (direction, self.id, self.stcan(), self.time, dlc, m, self.flags, self.sflags())
-        fmt = '%s %03X %-15s %8.3f %d:%-32s'
-        args = (direction, self.id, self.stcan(), self.time, dlc, m)
-        return fmt % args
+        m = self.data_str()
+        fmt = '{0:s} {1:03X} {2:<15s} {3:8.3f} {4:d}:{5:<32s} f:{6:02X}({7:s})'
+        args = (direction, self.id, self.stcan(), self.time, dlc, m, self.flags, self.sflags())
+        return fmt.format(*args)
 
     def __repr__(self):
         m = self.__module__
