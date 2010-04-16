@@ -1,3 +1,4 @@
+#!/bin/env python
 EOF = -1
 ERROR_PADDING = -2
 
@@ -58,4 +59,31 @@ class DLEHandler(object):
             b = self.port.read()
         return EOF
 
+def main():
+    import sys
+    class Port(object):
+        def read(self):
+            c = ord(sys.stdin.read(1))
+            return c
 
+    h = DLEHandler(Port())
+    while True:
+        r = h.read()
+        if r not in (EOF, ERROR_PADDING):
+            if r[0] == 0xFF:
+                id = ''.join(['%02X' % d for d in r[1:3]])
+                data = ['%02X' % d for d in r[3:-1]]
+                cs = '%02X' % r[-1]
+                print id, data, cs
+            elif r[0] == 0xFE:
+                id = ''.join(['%02X' % d for d in r[1:5]])
+                data = ['%02X' % d for d in r[5:-1]]
+                cs = '%02X' % r[-1]
+                print id, data, cs
+            elif r[0] == 0x01:
+                print 'ACK'
+        else:
+            print r, dir(r)
+
+if __name__ == '__main__':
+    main()
