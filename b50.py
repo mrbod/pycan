@@ -8,43 +8,6 @@ import canchannel
 import canmsg
 import optparse
 
-canBITRATE_1M = -1
-canBITRATE_500K = -2
-canBITRATE_250K = -3
-canBITRATE_125K = -4
-canBITRATE_100K = -5
-canBITRATE_62K = -6
-canBITRATE_50K = -7
-canBITRATE_83K = -8
-canBITRATE_10K = -9
-bitrates = {
-        canBITRATE_1M: '1M',
-        canBITRATE_500K: '500K',
-        canBITRATE_250K: '250K',
-        canBITRATE_125K: '125K',
-        canBITRATE_100K: '100K',
-        canBITRATE_62K: '62K',
-        canBITRATE_50K: '50K',
-        canBITRATE_83K: '83K',
-        canBITRATE_10K: '10K'
-        }
-
-canWANT_EXCLUSIVE = 0x0008
-canWANT_EXTENDED = 0x0010
-canWANT_VIRTUAL = 0x0020
-canOPEN_EXCLUSIVE = canWANT_EXCLUSIVE
-canOPEN_REQUIRE_EXTENDED = canWANT_EXTENDED
-canOPEN_ACCEPT_VIRTUAL = canWANT_VIRTUAL
-canOPEN_OVERRIDE_EXCLUSIVE = 0x0040
-canOPEN_REQUIRE_INIT_ACCESS = 0x0080
-canOPEN_NO_INIT_ACCESS = 0x0100
-canOPEN_ACCEPT_LARGE_DLC = 0x0200  # DLC can be greater than 8
-
-canDRIVER_NORMAL = 4
-canDRIVER_SILENT = 1
-canDRIVER_SELFRECEPTION = 8
-canDRIVER_OFF = 0
-
 canOK = 0
 canERR_NOMSG = -2
 
@@ -97,13 +60,6 @@ class KvaserCanChannel(canchannel.CanChannel):
                 s = ctypes.create_string_buffer(128)
                 self.canlib32.canGetErrorText(res, s, 128)
                 raise Exception('canSetBusOutputControl=%d: %s' % (res, s.value))
-
-    #def gettime(self):
-        #return self.canlib32.canReadTimer(self.handle)
-
-    def __del__(self):
-        if self.canlib32 != None:
-            self.canlib32.canClose(self.handle)
 
     def do_read(self):
         id = ctypes.c_int()
