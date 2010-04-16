@@ -13,8 +13,8 @@ class BMCCAN(kvaser.KvaserCanChannel):
         self.run_thread = True
         self.sendpos = False
         self.exception = None
-        id = 0x04 + (1 << 3)
-        self.pos = canmsg.CanMsg(id=id, data=[0,7,0,0,0,0])
+        id = 0x04 + (0 << 3)
+        self.pos = canmsg.CanMsg(id=id, data=[1,7,0,0,0,0])
         self.thread.start()
         kvaser.KvaserCanChannel.__init__(self, silent=silent, channel=channel, bitrate=kvaser.canBITRATE_500K)
 
@@ -22,6 +22,7 @@ class BMCCAN(kvaser.KvaserCanChannel):
         try:
             while self.run_thread:
                 if self.sendpos:
+                    #time.sleep(1)
                     self.sendpos = False
                     self.write(self.pos)
         except Exception, e:
@@ -29,23 +30,25 @@ class BMCCAN(kvaser.KvaserCanChannel):
             raise
 
     def action_handler(self, c):
+        self.sendpos = True
         pass
 
     def message_handler(self, m):
         if self.exception:
             raise self.exception
-        if m == self.old_recv:
-            self.old_cnt += 1
-        else:
-            if self.old_cnt > 0:
-                sys.stdout.write('repeated {0:d} times\n'.format(self.old_cnt))
-            self.old_recv = m
-            self.old_cnt = 0
-            self.dump_msg(m)
+        #if m == self.old_recv:
+            #self.old_cnt += 1
+        #else:
+            #if self.old_cnt > 0:
+                #sys.stdout.write('repeated {0:d} times\n'.format(self.old_cnt))
+            #self.old_recv = m
+            #self.old_cnt = 0
+            #self.dump_msg(m)
+        self.dump_msg(m)
         if m.id == 0x01:
-            self.sendpos = True
-        elif m.id == 0x0D:
-            self.pos.data = m.data[:]
+            self.sendpos = False
+        elif m.id == 0x05:
+            self.pos.data[2:] = m.data[2:]
 
     def exit_handler(self):
         self.run_thread = False
@@ -53,7 +56,10 @@ class BMCCAN(kvaser.KvaserCanChannel):
     def dump_msg(self, m):
         fmt = '{0:8.3f} {1:03X} {2:d}:{3:s}\n'
         s = fmt.format(m.time, m.id, m.dlc(), m.data_str())
-        sys.stdout.write(s)
+        if m.sent:
+            sys.stdout.write('W ' + s)
+        else:
+            sys.stdout.write('R ' + s)
 
     def debug(self, str):
         sys.stdout.write(str)

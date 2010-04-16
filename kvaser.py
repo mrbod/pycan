@@ -169,10 +169,49 @@ if __name__ == '__main__':
 
         class KCC(KvaserCanChannel):
             def message_handler(self, m):
-                print(m)
+                if m.sent:
+                    try:
+                        self.send_cnt += 1
+                    except:
+                        self.send_cnt = 0
+                    print self.send_cnt, m
+                else:
+                    try:
+                        self.rec_cnt += 1
+                    except:
+                        self.rec_cnt = 0
+                    print self.rec_cnt, m
 
             def action_handler(self, c):
-                self.write(canmsg.CanMsg())
+                if c == 'l':
+                    m = canmsg.CanMsg()
+                    m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
+                    m.flags = canmsg.canMSG_STD
+                    for i in range(1000):
+                        m.data = [i >> 8, i & 0xFF]
+                        self.write(m)
+                        #time.sleep(0.01)
+                elif c == 's':
+                    m = canmsg.CanMsg()
+                    m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
+                    m.flags = canmsg.canMSG_STD
+                    m.data = [ord(c) for c in 'hejsan']
+                    self.write(m)
+                elif c == 'm':
+                    m = canmsg.CanMsg()
+                    m.id = (canmsg.GROUP_POUT << 27) | (1 << 26) | (2 << 3) | canmsg.TYPE_OUT
+                    m.flags = canmsg.canMSG_EXT
+                    self.write(m)
+                else:
+                    try:
+                        self.i += 1
+                    except:
+                        self.i = 0
+                    m = canmsg.CanMsg()
+                    m.id = (canmsg.GROUP_PIN << 27) | (1 << 3) | canmsg.TYPE_IN
+                    m.flags = canmsg.canMSG_EXT
+                    m.data = [self.i & 0xFF]
+                    self.write(m)
 
         cc = KCC(channel=opts.channel, bitrate=opts.bitrate, silent=opts.silent)
         main(cc)
