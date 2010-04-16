@@ -85,7 +85,7 @@ class CanMsg(object):
 
     def addr(self):
         if (self.flags & canMSG_EXT) != 0:
-            return (self.id >> 3) & 0x01FFFFFF
+            return (self.id >> 3) & 0x00FFFFFF
         else:
             return (self.id >> 3) & 0x3f
 
@@ -118,8 +118,11 @@ class CanMsg(object):
             return '**'
 
     def stcan(self):
-        fmt = '{0:>4s},{1:02X},{2:<3s}'
-        return fmt.format(self.sgroup(), self.addr(), self.stype())
+        if (self.flags & canMSG_EXT) != 0:
+            fmt = '%4s,%08X,%-3s'
+        else:
+            fmt = '%4s,%02X,%-3s'
+        return fmt % (self.sgroup(), self.addr(), self.stype())
 
     def get_word(self, index):
         d = self.data
@@ -133,7 +136,7 @@ class CanMsg(object):
         d[s+1] = word & 0xFF
 
     def data_str(self):
-        t = ['{0:02X}'.format(d) for d in self.data]
+        t = ['%02X' % d for d in self.data]
         return '[' + ', '.join(t) + ']'
 
     def __str__(self):
@@ -143,9 +146,9 @@ class CanMsg(object):
         else:
             direction = 'R'
         m = self.data_str()
-        fmt = '{0:s} {1:08X} {2:<16s} {3:6.3f} {4:d}:{5:<32s} f:{6:02X}({7:s})'
+        fmt = '%s %08X %-16s %6.3f %d:%-32s f:%02X(%s)'
         args = (direction, self.id, self.stcan(), self.time, dlc, m, self.flags, self.sflags())
-        return fmt.format(*args)
+        return fmt % args
 
     def __repr__(self):
         m = self.__module__
