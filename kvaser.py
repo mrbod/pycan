@@ -169,6 +169,8 @@ if __name__ == '__main__':
 
         class KCC(KvaserCanChannel):
             def message_handler(self, m):
+                print m
+                return
                 if m.sent:
                     try:
                         self.send_cnt += 1
@@ -199,9 +201,20 @@ if __name__ == '__main__':
                     self.write(m)
                 elif c == 'm':
                     m = canmsg.CanMsg()
-                    m.id = (canmsg.GROUP_POUT << 27) | (1 << 26) | (2 << 3) | canmsg.TYPE_OUT
                     m.flags = canmsg.canMSG_EXT
-                    self.write(m)
+                    for i in range(100):
+                        if True:
+                            m.id = (canmsg.GROUP_POUT << 27) | (1 << 26) | (2 << 3) | canmsg.TYPE_OUT
+                            m.data = [1, 0]
+                        else:
+                            if i == 20:
+                                m.id = (canmsg.GROUP_CFG << 27) | (1 << 26) | (2 << 3) | canmsg.TYPE_OUT
+                                m.data = [0, 50, 0, 37, 0, 0]
+                            else:
+                                m.id = (canmsg.GROUP_POUT << 27) | (1 << 26) | (2 << 3) | canmsg.TYPE_OUT
+                                m.data = [i & 1, 0]
+                        self.write(m)
+                        time.sleep(0.50)
                 else:
                     try:
                         self.i += 1
