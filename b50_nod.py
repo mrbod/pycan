@@ -9,8 +9,8 @@ B50_ID = ((1 << 23) | 5)
 
 class BICAN(kvaser.KvaserCanChannel):
     def __init__(self, channel=0, silent=False):
-        self.thread = threading.Thread(target=self.run)
         self.run_thread = True
+        self.thread = threading.Thread(target=self.run)
         self.send_cnt = 0
         self.recv_cnt = 0
         self.send_primary = False
@@ -20,8 +20,8 @@ class BICAN(kvaser.KvaserCanChannel):
         self.primary.id = (canmsg.GROUP_PIN << 27) | (B50_ID << 3) | canmsg.TYPE_IN
         self.primary.flags = canmsg.canMSG_EXT
         self.primary.data = [0x01, 0x00]
-        self.thread.start()
         kvaser.KvaserCanChannel.__init__(self, silent=silent, channel=channel, bitrate=kvaser.canBITRATE_125K)
+        self.thread.start()
 
     def run(self):
         T0 = time.time()
