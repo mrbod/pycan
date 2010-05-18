@@ -267,6 +267,11 @@ if __name__ == '__main__':
                     m.flags = canmsg.canMSG_EXT
                     m.data = [0x00]
                     self.write(m)
+                elif c == 'r':
+                    m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                    m.flags = canmsg.canMSG_EXT
+                    m.data = [0, 86, 0, 1]
+                    self.write(m)
                 elif c in 'u':
                     m.id = (canmsg.GROUP_SEC << 27) | (BUID << 3) | canmsg.TYPE_OUT
                     m.flags = canmsg.canMSG_EXT
