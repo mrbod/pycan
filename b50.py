@@ -102,7 +102,7 @@ class UDPCanChannel(canchannel.CanChannel):
     def idle(self):
         if self.first_idle:
             self.first_idle = False
-            d = [0x01, 0, 0, 8, 0]
+            d = [0x01, 0, 0, 30*4, 0]
             self.dle_handler.send(d)
             sys.stdout.write('idle set\n')
             sys.stdout.flush()
