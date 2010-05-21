@@ -7,6 +7,7 @@ import canmsg
 import optparse
 import udpclient
 import threading
+import dle
 
 canOK = 0
 canERR_NOMSG = -2
@@ -15,80 +16,45 @@ def debug(str):
     sys.stdout.write(str)
     sys.stdout.flush()
 
-EOF = -1
-ERROR_PADDING = -2
+BUID = ((1 << 23) | 0x40)
 
-DLE = 0x10
-STX = 0x02
-ETX = 0x03
+class UDPPort(object):
+    def __init__(self, port=None):
+        self.port = udpclient.UdpClient(port)
+        self.outbuf = []
+        self.inbuf = ''
+        self.inbuf_size = 0
 
-BUID = ((1 << 23) | 0x42)
+    def read(self):
+        if self.inbuf_size <= 0:
+            try:
+                self.inbuf = self.port.recv(4096)
+                self.inbuf_size = len(self.inbuf)
+            except:
+                self.inbuf = ''
+                self.inbuf_size = 0
+                return dle.EOF
+        b = self.inbuf[-self.inbuf_size]
+        self.inbuf_size -= 1
+        return ord(b)
 
-class UDP_DLE(object):
-    def __init__(self, port):
-        self.port = port
-        self.get_start = True
-        self.got_dle = False
-        self.frame = []
-
-    def dle_pad(self, byte):
-        if byte == DLE:
-            return (DLE, DLE)
-        return (byte,)
-
-    def send(self, frame):
-        data = [DLE, STX]
-        for b in frame:
-            data.append(b)
-            if b == DLE:
-                data.append(DLE)
-        cs = 0xFF & (0x100 - (sum(frame) & 0xFF))
-        if cs == DLE:
-            data.append(DLE)
-        data.append(cs)
-        data = data + [DLE, ETX]
-        d = ''.join([chr(x) for x in data])
-        self.port.send(d)
-
-    def read(self, frames):
-        try:
-            buf = self.port.recv(4096)
-        except:
-            buf = ''
-        for b in buf:
-            b = ord(b)
-            if self.get_start:
-                if self.got_dle:
-                    self.got_dle = False
-                    if b == STX:
-                        self.get_start = False
-                        self.frame = []
-                else:
-                    if b == DLE:
-                        self.got_dle = True
-            else:
-                if self.got_dle:
-                    self.got_dle = False
-                    if b == ETX:
-                        self.get_start = True
-                        frames.append(self.frame)
-                    elif b == DLE:
-                        self.frame.append(b)
-                    elif b == STX:
-                        self.frame = []
-                    else:
-                        self.get_start = True
-                        sys.stderr.write('DLE: ERROR_PADDING\n')
-                elif b == DLE:
-                    self.got_dle = True
-                else:
-                    self.frame.append(b)
+    def write(self, byte):
+        if byte == None:
+            d = ''.join([chr(x) for x in self.outbuf])
+            self.port.send(d)
+            self.outbuf = []
+        elif byte > 255:
+            import traceback
+            traceback.print_stack()
+            print 'outbuf: %s' % str(self.outbuf)
+            raise Exception('UDPPort.write(%s)' % str(byte))
+        else:
+            self.outbuf.append(byte)
 
 class UDPCanChannel(canchannel.CanChannel):
     def __init__(self, ip='localhost', port=2000):
         canchannel.CanChannel.__init__(self)
-        self.port = udpclient.UdpClient((ip, port))
-        self.dle_handler = UDP_DLE(self.port)
+        self.dle_handler = dle.DLEHandler(UDPPort((ip, port)))
         self.outqueue = []
         self.supervised = set()
         self.run_thread = True
@@ -99,18 +65,28 @@ class UDPCanChannel(canchannel.CanChannel):
         self.count = 0
         self.thread.start()
 
+    def checksum(self, data):
+        s = sum(data) & 0xFF
+        if s > 0:
+            return 0x100 - s
+        return 0x00
+
+    def send_frame(self, frame):
+        cs = self.checksum(frame)
+        self.dle_handler.send(frame + [cs])
+
     def idle(self):
         if self.first_idle:
             self.first_idle = False
             d = [0x01, 0, 0, 30*4, 0]
-            self.dle_handler.send(d)
+            self.send_frame(d)
             sys.stdout.write('idle set\n')
             sys.stdout.flush()
         elif self.last_idle:
             self.last_idle = False
             self.send_idle = False
             d = [0x01, 0, 0, 0, 0]
-            self.dle_handler.send(d)
+            self.send_frame(d)
             sys.stdout.write('idle stop\n')
             sys.stdout.flush()
         else:
@@ -146,7 +122,6 @@ class UDPCanChannel(canchannel.CanChannel):
 
     def exit_handler(self):
         self.run_thread = False
-        self.port.close()
         canchannel.CanChannel.exit_handler(self)
 
     def frame2can(self, frame):
@@ -167,13 +142,16 @@ class UDPCanChannel(canchannel.CanChannel):
 
     def do_read(self):
         try:
-            self.dle_handler.read(self.frames)
-            if len(self.frames) > 0:
-                m = self.frame2can(self.frames.pop(0))
+            frame = self.dle_handler.read()
+            if isinstance(frame, list):
+                m = self.frame2can(frame)
                 if m:
                     m.time = self.gettime() - self.starttime
                     return m
+            elif not isinstance(frame, int):
+                raise Exception('unknown frame type')
             return None
+
         except Exception, e:
             sys.stderr.write('do_read: %s\n' % str(e))
             sys.stderr.flush()
@@ -189,7 +167,7 @@ class UDPCanChannel(canchannel.CanChannel):
             head += [(self.count >> 8) & 0xFF, self.count & 0xFF]
             head += [(msg.id >> 8) & 0xFF, msg.id & 0xFF]
         d = head + msg.data
-        self.dle_handler.send(d)
+        self.send_frame(d)
         msg.time = self.gettime() - self.starttime
 
 class UDPOptions(optparse.OptionParser):
@@ -339,8 +317,8 @@ if __name__ == '__main__':
                     m.data = [self.i & 0xFF]
                     self.write(m)
 
+        cc = UCC(ip = args[0], port = int(args[1]))
         try:
-            cc = UCC(ip = args[0], port = int(args[1]))
             main(cc)
         finally:
             cc.exit_handler()
