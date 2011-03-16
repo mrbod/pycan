@@ -16,17 +16,18 @@ class Logger(object):
 
     def _run(self):
         while self.active:
-            time.sleep(0.01)
+            time.sleep(0.1)
             t = ''
             self._lock.acquire()
             try:
                 if self._txt:
-                    t = '\n' + '\n'.join(self._txt)
+                    t = '\n'.join(self._txt) + '\n'
                     self._txt = []
             finally:
                 self._lock.release()
             if t:
                 self.output.write(t)
+                self.output.flush()
 
     def log(self, txt):
         self._lock.acquire(True)

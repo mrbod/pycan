@@ -20,7 +20,7 @@ class CanChannel(object):
         self.starttime = time.time()
 
     def close(self):
-        print 'duration %.3fs' % (time.time() - self.starttime)
+        self.log('duration %.3fs' % self.gettime())
 
     def __del__(self):
         self.close()
@@ -102,13 +102,14 @@ def main(channel):
     try:
         interface.main(channel)
     finally:
+        logger.active = False
         channel.exit_handler()
 
 if __name__ == '__main__':
     try:
         class CCC(CanChannel):
             def message_handler(self, m):
-                print(m)
+                self.log(m)
 
         ch = CCC()
         main(ch)

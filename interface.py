@@ -8,28 +8,19 @@ import termios
 import fcntl
 import exceptions
 
-def debug(txt):
-    sys.stdout.write(txt)
-    sys.stdout.flush()
-
 def child(w):
-    debug('CHILD STARTING\n')
-    try:
-        while True:
-            try:
-                time.sleep(0.01)
-                c = sys.stdin.read(1)
-                os.write(w, c)
-            except exceptions.IOError, e:
-                pass
-    finally:
-        debug('CHILD GONE\n')
+    while True:
+        try:
+            time.sleep(0.01)
+            c = sys.stdin.read(1)
+            os.write(w, c)
+        except exceptions.IOError, e:
+            pass
 
 def parent(channel, r):
     oldflags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
     fcntl.fcntl(r, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-    debug('PARENT STARTING\n')
     try:
         while True:
             if channel.read():
@@ -52,7 +43,6 @@ def parent(channel, r):
                     raise
     finally:
         channel.exit_handler()
-        debug('PARENT GONE\n')
 
 def exit(pid):
     if pid != 0:

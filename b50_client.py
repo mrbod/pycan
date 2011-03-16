@@ -7,16 +7,19 @@ import canmsg
 import optparse
 import udpclient
 import threading
+import random
 import dle
 
 canOK = 0
 canERR_NOMSG = -2
 
-def debug(str):
-    sys.stdout.write(str)
-    sys.stdout.flush()
-
 BUID = ((1 << 23) | 0x1)
+
+def buid2id(buid):
+    return buid << 3
+
+def id2buid(id):
+    return (id >> 3) & 0x00FFFFFF
 
 class UDPPort(object):
     def __init__(self, port=None):
@@ -51,16 +54,71 @@ class UDPPort(object):
         else:
             self.outbuf.append(byte)
 
+class App(object):
+    def __init__(self, channel):
+        self.channel = channel
+        self.thread = threading.Thread(target=self.run)
+        self._run = True
+        self._lock = threading.Lock()
+        self._nodes = {}
+        self.thread.start()
+
+    def stop(self):
+        self._run = False
+
+    def add(self, node):
+        self._lock.acquire()
+        try:
+            self._nodes[node.addr()] = node
+            self._xnodes = self._nodes.values()
+        finally:
+            self._lock.release()
+
+    def remove(self, buid):
+        self._lock.acquire()
+        try:
+            try:
+                del self._nodes[buid]
+                self._xnodes = self._nodes.values()
+            except:
+                pass
+        finally:
+            self._lock.release()
+        
+    def run(self):
+        while self._run:
+            time.sleep(0.1)
+            self._lock.acquire()
+            try:
+                try:
+                    node = random.choice(self._xnodes)
+                    if node.data[0] != 0:
+                        node.data[0] = 1
+                    else:
+                        node.data[0] = 0
+                    self.channel.write(node)
+                except:
+                    pass
+            finally:
+                self._lock.release()
+
 class UDPCanChannel(canchannel.CanChannel):
     def __init__(self, ip='localhost', port=2000):
+        self.app = App(self)
         canchannel.CanChannel.__init__(self)
         self.dle_handler = dle.DLEHandler(UDPPort((ip, port)))
         self.outqueue = []
-        self.supervised = set()
+        self.managed = set()
+        self.version_asked = set()
+        self.version_received = set()
+        self.type_asked = set()
+        self.type_received = set()
         self.run_thread = True
         self.thread = threading.Thread(target=self.run)
         self.exception = None
-        self.send_idle = False
+        self.first_idle = True
+        self.last_idle = False
+        self.send_idle = True
         self.frames = []
         self.count_out = 0
         self.count_in = 0
@@ -84,7 +142,7 @@ class UDPCanChannel(canchannel.CanChannel):
         #if self.errcnt >= 10:
             #self.errcnt = 0
             #self.count_out += 1
-            #print 'error induced'
+            #self.log('error induced')
         self.count_out = (self.count_out + 1) & 0xFFFF
 
 
@@ -93,15 +151,13 @@ class UDPCanChannel(canchannel.CanChannel):
             self.first_idle = False
             d = [0, 0, 30*4, 0]
             self.send_frame(0x01, d)
-            sys.stdout.write('idle set\n')
-            sys.stdout.flush()
+            self.log('idle set')
         elif self.last_idle:
             self.last_idle = False
             self.send_idle = False
             d = [0, 0, 0, 0]
             self.send_frame(0x01, d)
-            sys.stdout.write('idle stop\n')
-            sys.stdout.flush()
+            self.log('idle stop')
         else:
             m = canmsg.CanMsg()
             m.id = (canmsg.GROUP_POUT << 27) | (BUID << 3) | canmsg.TYPE_OUT
@@ -110,29 +166,24 @@ class UDPCanChannel(canchannel.CanChannel):
             self.write(m)
 
     def run(self):
-        sys.stderr.write('thread starting\n')
-        sys.stderr.flush()
-        T0 = time.time()
+        T0 = self.gettime()
         try:
-            try:
-                while self.run_thread:
-                    while len(self.outqueue) > 0:
-                        self.write(self.outqueue[0])
-                        del(self.outqueue[0])
-                    time.sleep(0.01)
-                    T = time.time()
-                    if T - T0 > 1.0:
-                        T0 = T
-                        if self.send_idle:
-                            self.idle()
-            except Exception, e:
-                self.exception = e
-                raise
-        finally:
-            sys.stderr.write('thread done\n')
-            sys.stderr.flush()
+            while self.run_thread:
+                while len(self.outqueue) > 0:
+                    self.write(self.outqueue[0])
+                    del(self.outqueue[0])
+                time.sleep(0.01)
+                T = self.gettime()
+                if T - T0 > 1.0:
+                    T0 = T
+                    if self.send_idle:
+                        self.idle()
+        except Exception, e:
+            self.exception = e
+            raise
 
     def exit_handler(self):
+        self.app.stop()
         self.run_thread = False
         canchannel.CanChannel.exit_handler(self)
 
@@ -140,8 +191,14 @@ class UDPCanChannel(canchannel.CanChannel):
         m = canmsg.CanMsg()
         count = (frame[1] << 8) | frame[2]
         if count != self.count_in:
-            s =  'DROPPED FRAME: got {0}, expected {0}'
-            print s.format(count, self.count_in)
+            f = [0, 0x01, # dle err type
+                 (self.count_in >> 8) &  0xff,
+                 self.count_in & 0xff,
+                 (count >> 8) &  0xff,
+                 count & 0xff]
+            self.send_frame(0x02, f)
+            s =  'DROPPED FRAME: got {0}, expected {1}'
+            self.log(s.format(count, self.count_in))
         self.count_in = (count + 1) & 0xFFFF
         if frame[0] == 0xFF:
             m.flags = canmsg.canMSG_STD
@@ -161,15 +218,14 @@ class UDPCanChannel(canchannel.CanChannel):
             if isinstance(frame, list):
                 m = self.frame2can(frame)
                 if m:
-                    m.time = self.gettime() - self.starttime
+                    m.time = self.gettime()
                     return m
             elif not isinstance(frame, int):
                 raise Exception('unknown frame type')
             return None
 
         except Exception, e:
-            sys.stderr.write('do_read: %s\n' % str(e))
-            sys.stderr.flush()
+            self.log('do_read: %s' % str(e))
             raise
 
     def do_write(self, msg):
@@ -181,7 +237,7 @@ class UDPCanChannel(canchannel.CanChannel):
             head = [(msg.id >> 8) & 0xFF, msg.id & 0xFF]
         d = head + msg.data
         self.send_frame(frame_type, d)
-        msg.time = self.gettime() - self.starttime
+        msg.time = self.gettime()
 
 class UDPOptions(optparse.OptionParser):
     def __init__(self):
@@ -205,29 +261,96 @@ if __name__ == '__main__':
 
         class UCC(UDPCanChannel):
             def dump_msg(self, m):
-                fmt = '%8.3f %08X %08X %d:%s\n'
+                fmt = '%8.3f %08X %08X %d:%s'
                 s = fmt % (m.time, m.id, m.addr(), m.dlc(), m.data_str())
                 if m.sent:
-                    sys.stdout.write('W ' + s)
+                    self.log('W ' + s)
                 else:
-                    sys.stdout.write('R ' + s) 
+                    self.log('R ' + s) 
+
+            def ask_type(self, buid):
+                self.log('ask_type')
+                self.type_asked.add(buid)
+                i = (canmsg.GROUP_CFG << 27) | (buid << 3) | canmsg.TYPE_OUT
+                msg = canmsg.CanMsg(id = i)
+                msg.flags = canmsg.canMSG_EXT
+                msg.data = [0, 0x63, 0, 0x1E]
+                self.outqueue.append(msg)
+
+            def ask_version(self, buid):
+                self.log('ask_version')
+                self.version_asked.add(buid)
+                i = (canmsg.GROUP_CFG << 27) | (buid << 3) | canmsg.TYPE_OUT
+                msg = canmsg.CanMsg(id = i)
+                msg.flags = canmsg.canMSG_EXT
+                msg.data = [0, 0x63, 0, 0x1F]
+                self.outqueue.append(msg)
+
+            def manage(self, id):
+                self.log('manage')
+                self.managed.add(id)
+                i = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                msg = canmsg.CanMsg(id = i)
+                msg.flags = canmsg.canMSG_EXT
+                msg.data = [0x00, 84,
+                            (id >> 24) & 0xFF, (id >> 16) & 0xFF,
+                            (id >> 8) & 0xFF, id & 0xFF,
+                            2, 58]
+                self.outqueue.append(msg)
+
+            def add_app(self, buid):
+                self.log('add_app')
+                i = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                msg = canmsg.CanMsg(id = i)
+                msg.flags = canmsg.canMSG_EXT
+                id = (canmsg.GROUP_POUT << 27) | (buid << 3) | canmsg.TYPE_OUT
+                msg.data = [0x00, 85,
+                            (id >> 24) & 0xFF, (id >> 16) & 0xFF,
+                            (id >> 8) & 0xFF, id & 0xFF,
+                            0x01, 0x90]
+                self.outqueue.append(msg)
+                msg = canmsg.CanMsg(id = id)
+                msg.flags = canmsg.canMSG_EXT
+                msg.data = [0x00, 0x00]
+                self.app.add(msg)
 
             def message_handler(self, m):
                 self.dump_msg(m)
-                buid = m.addr()
-                if not m.sent:
+                if m.sent:
+                    pass
+                else:
+                    buid = m.addr()
+                    g = m.group()
                     if buid == BUID:
-                        if (m.group() == canmsg.GROUP_SEC) and (m.data[1] == 41):
+                        if (g == canmsg.GROUP_SEC) and (m.data[1] == 41):
                             id = (m.data[2] << 24) | (m.data[3] << 16) | (m.data[4] << 8) | m.data[5]
-                            self.supervised.discard(id)
+                            self.managed.discard(id)
+                            addr = id2buid(id)
+                            self.version_received.discard(addr)
+                            self.type_received.discard(addr)
+                            self.app.remove(addr)
                     else:
-                        if m.id not in self.supervised:
-                            self.supervised.add(m.id)
-                            msg = canmsg.CanMsg()
-                            msg.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                            msg.flags = canmsg.canMSG_EXT
-                            msg.data = [0x00, 84, (m.id >> 24) & 0xFF, (m.id >> 16) & 0xFF, (m.id >> 8) & 0xFF, m.id & 0xFF, 2, 58]
-                            self.outqueue.append(msg)
+                        if m.id in self.managed:
+                            pass
+                        else:
+                            if g == canmsg.GROUP_PIN:
+                                if buid not in self.type_received:
+                                    if buid not in self.type_asked:
+                                        self.ask_type(buid)
+                                elif buid not in self.version_received:
+                                    if buid not in self.version_asked:
+                                        self.ask_version(buid)
+                                else:
+                                    self.version_asked.discard(buid)
+                                    self.type_asked.discard(buid)
+                                    self.manage(m.id)
+                                    self.add_app(buid)
+                            elif g == canmsg.GROUP_CFG:
+                                cmd = m.get_word(0)
+                                if cmd == 0x1E:
+                                    self.type_received.add(buid)
+                                elif cmd == 0x1F:
+                                    self.version_received.add(buid)
                 if self.exception:
                     raise self.exception
 
