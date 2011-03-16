@@ -6,6 +6,9 @@ import canmsg
 import optparse
 import interface
 import threading
+import logthread
+
+logger = logthread.Logger()
 
 class CanChannel(object):
     def __init__(self):
@@ -69,7 +72,7 @@ class CanChannel(object):
         self.message_handler(msg)
 
     def log(self, x):
-        pass
+        logger.log(x)
 
     def action_handler(self, key):
         pass
