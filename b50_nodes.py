@@ -12,37 +12,6 @@ def B50_ID(uid):
 def myid(x):
     return (canmsg.GROUP_PIN << 27) | (B50_ID(x) << 3) | canmsg.TYPE_IN
 
-class Logger(object):
-    def __init__(self):
-        self.active = True
-        self._txt = []
-        self._lock = threading.Lock()
-        self.thread = threading.Thread(target=self._run, name='Logger')
-        self.thread.start()
-
-    def _run(self):
-        while self.active:
-            time.sleep(0.01)
-            t = ''
-            self._lock.acquire()
-            try:
-                if self._txt:
-                    t = '\n' + '\n'.join(self._txt)
-                    self._txt = []
-            finally:
-                self._lock.release()
-            if t:
-                sys.stdout.write(t)
-
-    def log(self, txt):
-        self._lock.acquire(True)
-        try:
-            self._txt.append(txt)
-        finally:
-            self._lock.release()
-
-logger = Logger()
-
 class BICAN(kvaser.KvaserCanChannel):
     def __init__(self, channel=0, silent=False):
         F = canmsg.canMSG_EXT
@@ -78,7 +47,6 @@ class BICAN(kvaser.KvaserCanChannel):
         try:
             try:
                 while self.run_thread:
-                    #time.sleep(0.01)
                     T = self.gettime()
                     if (T - T0) > 0.01:
                         self.activate()
@@ -133,9 +101,6 @@ class BICAN(kvaser.KvaserCanChannel):
 
     def exit_handler(self):
         self.run_thread = False
-
-    def log(self, x):
-        logger.log(x)
 
 if __name__ == '__main__':
     silent = False
