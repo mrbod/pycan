@@ -82,8 +82,8 @@ class BICAN(kvaser.KvaserCanChannel):
         self.run_thread = False
 
     def dump_msg(self, m):
-        fmt = '%8.3f %08X %d:%s\n'
-        s = fmt % (m.time, m.id, m.dlc(), m.data_str())
+        fmt = '%8.3f %s %d:%s\n'
+        s = fmt % (m.time, m.stcan(), m.dlc(), m.data_str())
         if m.sent:
             self.send_cnt += 1
             sys.stdout.write('W ' + s)

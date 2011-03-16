@@ -16,7 +16,7 @@ def debug(str):
     sys.stdout.write(str)
     sys.stdout.flush()
 
-BUID = ((1 << 23) | 0x40)
+BUID = ((1 << 23) | 0x1)
 
 class UDPPort(object):
     def __init__(self, port=None):

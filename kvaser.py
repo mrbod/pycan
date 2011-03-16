@@ -99,7 +99,7 @@ class KvaserCanChannel(canchannel.CanChannel):
                 raise Exception('canSetBusOutputControl=%d: %s' % (res, s.value))
 
     #def gettime(self):
-        #return self.canlib32.canReadTimer(self.handle)
+        #return self.canlib32.canReadTimer(self.handle) / 1000.0
 
     def __del__(self):
         if self.canlib32 != None:
@@ -111,9 +111,9 @@ class KvaserCanChannel(canchannel.CanChannel):
         dlc = ctypes.c_int()
         flags = ctypes.c_int()
         time = ctypes.c_int()
-        res = self.canlib32.canRead(self.handle, ctypes.byref(id), data, ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(time))
+        res = self.canlib32.canReadWait(self.handle, ctypes.byref(id), data, ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(time), -1)
         if res == canOK:
-            T = self.gettime() - self.starttime
+            T = self.gettime()
             d = [ord(data[i]) for i in range(dlc.value)]
             m = canmsg.CanMsg(id.value, d, flags.value, T, channel=self)
             return m
@@ -125,8 +125,17 @@ class KvaserCanChannel(canchannel.CanChannel):
 
     def do_write(self, msg):
         d = ''.join([chr(x) for x in msg.data])
-        res = self.canlib32.canWrite(self.handle, msg.id, d, len(d), msg.flags)
-        msg.time = self.gettime() - self.starttime
+        cnt = 0
+        while True:
+            cnt += 1
+            res = self.canlib32.canWrite(self.handle, msg.id, d, len(d), msg.flags)
+            if res == 0:
+                break
+            elif cnt % 50 == 0:
+                self.log('written {0} times'.format(cnt))
+            elif cnt > 10000:
+                raise Exception('do_write failed(%d)' % res)
+        msg.time = self.gettime()
 
 class KvaserOptions(optparse.OptionParser):
     def __init__(self):
@@ -168,53 +177,26 @@ if __name__ == '__main__':
         opts, args = parse_args()
 
         class KCC(KvaserCanChannel):
+            def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
+                super(KCC, self).__init__(channel, bitrate, silent)
+
             def message_handler(self, m):
                 print m
-                return
-                if m.sent:
-                    try:
-                        self.send_cnt += 1
-                    except:
-                        self.send_cnt = 0
-                    print self.send_cnt, m
-                else:
-                    try:
-                        self.rec_cnt += 1
-                    except:
-                        self.rec_cnt = 0
-                    print self.rec_cnt, m
 
             def action_handler(self, c):
                 if c == 'l':
                     m = canmsg.CanMsg()
                     m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
                     m.flags = canmsg.canMSG_STD
-                    for i in range(1000):
+                    for i in range(100):
                         m.data = [i >> 8, i & 0xFF]
                         self.write(m)
-                        #time.sleep(0.01)
                 elif c == 's':
                     m = canmsg.CanMsg()
                     m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
                     m.flags = canmsg.canMSG_STD
                     m.data = [ord(c) for c in 'hejsan']
                     self.write(m)
-                elif c == 'm':
-                    m = canmsg.CanMsg()
-                    m.flags = canmsg.canMSG_EXT
-                    for i in range(100):
-                        if True:
-                            m.id = (canmsg.GROUP_POUT << 27) | (1 << 26) | (2 << 3) | canmsg.TYPE_OUT
-                            m.data = [1, 0]
-                        else:
-                            if i == 20:
-                                m.id = (canmsg.GROUP_CFG << 27) | (1 << 26) | (2 << 3) | canmsg.TYPE_OUT
-                                m.data = [0, 50, 0, 37, 0, 0]
-                            else:
-                                m.id = (canmsg.GROUP_POUT << 27) | (1 << 26) | (2 << 3) | canmsg.TYPE_OUT
-                                m.data = [i & 1, 0]
-                        self.write(m)
-                        time.sleep(0.50)
                 else:
                     try:
                         self.i += 1
