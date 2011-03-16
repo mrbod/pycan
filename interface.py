@@ -13,7 +13,7 @@ def debug(txt):
     sys.stdout.flush()
 
 def child(w):
-    debug('******* CHILD STARTING\n')
+    debug('CHILD STARTING\n')
     try:
         while True:
             try:
@@ -23,16 +23,18 @@ def child(w):
             except exceptions.IOError, e:
                 pass
     finally:
-        debug('******* CHILD GONE\n')
+        debug('CHILD GONE\n')
 
 def parent(channel, r):
     oldflags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
     fcntl.fcntl(r, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-    debug('******* PARENT STARTING\n')
+    debug('PARENT STARTING\n')
     try:
         while True:
-            if not channel.read():
+            if channel.read():
+                time.sleep(0.001)
+            else:
                 sys.stdout.flush()
                 try:
                     c = os.read(r, 1)
@@ -50,7 +52,7 @@ def parent(channel, r):
                     raise
     finally:
         channel.exit_handler()
-        debug('******* PARENT GONE\n')
+        debug('PARENT GONE\n')
 
 def exit(pid):
     if pid != 0:

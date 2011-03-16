@@ -83,6 +83,9 @@ class CanMsg(object):
     def dlc(self):
         return len(self.data) 
 
+    def extended(self):
+        return self.flags & canMSG_EXT
+
     def addr(self):
         if (self.flags & canMSG_EXT) != 0:
             return (self.id >> 3) & 0x00FFFFFF
@@ -146,7 +149,7 @@ class CanMsg(object):
         else:
             direction = 'R'
         m = self.data_str()
-        fmt = '%s %08X %-16s %6.3f %d:%-32s f:%02X(%s)'
+        fmt = '%s %08X %s %9.3f %d%-32s f:%02X(%s)'
         args = (direction, self.id, self.stcan(), self.time, dlc, m, self.flags, self.sflags())
         return fmt % args
 
@@ -163,6 +166,8 @@ class CanMsg(object):
         return '%s.%s(id=%d, data=%s, flags=%s, time=%d)' % vals
 
     def __eq__(self, other):
+        if not other:
+            return False
         if self.id != other.id:
             return False
         if len(self.data) != len(other.data):

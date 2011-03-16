@@ -5,48 +5,71 @@ import time
 import canmsg
 import optparse
 import interface
+import threading
 
 class CanChannel(object):
     def __init__(self):
         self.starttime = time.time()
-        self.T0 = self.starttime
+        self.T0 = self.gettime()
+        self._canchannel_lock = threading.Lock()
     
     def open(self):
-        self.starttime = self.gettime()
+        self.starttime = time.time()
 
     def close(self):
-        print 'duration %.3fs' % (self.gettime() - self.starttime)
+        print 'duration %.3fs' % (time.time() - self.starttime)
+
+    def lock(self):
+        self._canchannel_lock.acquire(True)
+        #self.log('lock {0}'.format(threading.current_thread().name))
+
+    def unlock(self):
+        #self.log('unlock {0}'.format(threading.current_thread().name))
+        self._canchannel_lock.release()
 
     def __del__(self):
         self.close()
 
     def gettime(self):
-        return time.time()
+        return time.time() - self.starttime
 
     def do_read(self):
         T = self.gettime()
         if T - self.T0 > 2:
             self.T0 = T
             m = canmsg.CanMsg()
-            m.time = T - self.starttime
+            m.time = T
             return m
         return None
 
     def read(self):
-        m = self.do_read()
+        m = None
+        #self.lock()
+        try:
+            m = self.do_read()
+        finally:
+            #self.unlock()
+            pass
         if m:
             m.channel = self
             self.message_handler(m)
         return m
 
     def do_write(self, msg):
-        msg.time = self.gettime() - self.starttime
+        msg.time = self.gettime()
 
     def write(self, msg):
-        self.do_write(msg)
+        self.lock()
+        try:
+            self.do_write(msg)
+        finally:
+            self.unlock()
         msg.channel = self
         msg.sent = True
         self.message_handler(msg)
+
+    def log(self, x):
+        pass
 
     def action_handler(self, key):
         pass

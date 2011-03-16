@@ -74,7 +74,7 @@ if __name__ == '__main__':
     for o in sys.argv[1:]:
         if o == '-s':
             silent = True
-    c = BICAN(2, silent=silent)
+    c = BICAN(1, silent=silent)
     try:
         c.open()
         kvaser.main(c)
