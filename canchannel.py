@@ -14,21 +14,13 @@ class CanChannel(object):
     def __init__(self):
         self.starttime = time.time()
         self.T0 = self.gettime()
-        self._canchannel_lock = threading.Lock()
+        self._write_lock = threading.Lock()
     
     def open(self):
         self.starttime = time.time()
 
     def close(self):
         print 'duration %.3fs' % (time.time() - self.starttime)
-
-    def lock(self):
-        self._canchannel_lock.acquire(True)
-        #self.log('lock {0}'.format(threading.current_thread().name))
-
-    def unlock(self):
-        #self.log('unlock {0}'.format(threading.current_thread().name))
-        self._canchannel_lock.release()
 
     def __del__(self):
         self.close()
@@ -47,11 +39,9 @@ class CanChannel(object):
 
     def read(self):
         m = None
-        #self.lock()
         try:
             m = self.do_read()
         finally:
-            #self.unlock()
             pass
         if m:
             m.channel = self
@@ -62,11 +52,11 @@ class CanChannel(object):
         msg.time = self.gettime()
 
     def write(self, msg):
-        self.lock()
+        self._write_lock.acquire(True)
         try:
             self.do_write(msg)
         finally:
-            self.unlock()
+            self._write_lock.release()
         msg.channel = self
         msg.sent = True
         self.message_handler(msg)
