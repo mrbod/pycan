@@ -62,7 +62,9 @@ class UDPCanChannel(canchannel.CanChannel):
         self.exception = None
         self.send_idle = False
         self.frames = []
-        self.count = 0
+        self.count_out = 0
+        self.count_in = 0
+        self.errcnt = 0
         self.thread.start()
 
     def checksum(self, data):
@@ -71,28 +73,38 @@ class UDPCanChannel(canchannel.CanChannel):
             return 0x100 - s
         return 0x00
 
-    def send_frame(self, frame):
+    def send_frame(self, frame_type, frame):
+        head = [frame_type]
+        head.append((self.count_out >> 8) & 0xFF)
+        head.append(self.count_out & 0xFF)
+        frame = head + frame
         cs = self.checksum(frame)
         self.dle_handler.send(frame + [cs])
+        #self.errcnt += 1
+        #if self.errcnt >= 10:
+            #self.errcnt = 0
+            #self.count_out += 1
+            #print 'error induced'
+        self.count_out = (self.count_out + 1) & 0xFFFF
+
 
     def idle(self):
         if self.first_idle:
             self.first_idle = False
-            d = [0x01, 0, 0, 30*4, 0]
-            self.send_frame(d)
+            d = [0, 0, 30*4, 0]
+            self.send_frame(0x01, d)
             sys.stdout.write('idle set\n')
             sys.stdout.flush()
         elif self.last_idle:
             self.last_idle = False
             self.send_idle = False
-            d = [0x01, 0, 0, 0, 0]
-            self.send_frame(d)
+            d = [0, 0, 0, 0]
+            self.send_frame(0x01, d)
             sys.stdout.write('idle stop\n')
             sys.stdout.flush()
         else:
             m = canmsg.CanMsg()
-            m.count = self.count
-            m.id = 0x66
+            m.id = (canmsg.GROUP_POUT << 27) | (BUID << 3) | canmsg.TYPE_OUT
             m.flags = canmsg.canMSG_EXT
             m.data = [0x01]
             self.write(m)
@@ -126,14 +138,17 @@ class UDPCanChannel(canchannel.CanChannel):
 
     def frame2can(self, frame):
         m = canmsg.CanMsg()
+        count = (frame[1] << 8) | frame[2]
+        if count != self.count_in:
+            s =  'DROPPED FRAME: got {0}, expected {0}'
+            print s.format(count, self.count_in)
+        self.count_in = (count + 1) & 0xFFFF
         if frame[0] == 0xFF:
             m.flags = canmsg.canMSG_STD
-            m.count = (frame[1] << 8) | frame[2]
             m.id = (frame[3] << 8) | frame[4]
             m.data = frame[5:-1]
         elif frame[0] == 0xFE:
             m.flags = canmsg.canMSG_EXT
-            m.count = (frame[1] << 8) | frame[2]
             m.id = (frame[3] << 24) | (frame[4] << 16) | (frame[5] << 8) | frame[6]
             m.data = frame[7:-1]
         else:
@@ -159,15 +174,13 @@ class UDPCanChannel(canchannel.CanChannel):
 
     def do_write(self, msg):
         if msg.flags & canmsg.canMSG_EXT:
-            head = [0xFE]
-            head += [(self.count >> 8) & 0xFF, self.count & 0xFF]
-            head += [(msg.id >> 24) & 0xFF, (msg.id >> 16) & 0xFF, (msg.id >> 8) & 0xFF, msg.id & 0xFF]
+            frame_type = 0xFE
+            head = [(msg.id >> 24) & 0xFF, (msg.id >> 16) & 0xFF, (msg.id >> 8) & 0xFF, msg.id & 0xFF]
         else:
-            head = [0xFF]
-            head += [(self.count >> 8) & 0xFF, self.count & 0xFF]
-            head += [(msg.id >> 8) & 0xFF, msg.id & 0xFF]
+            frame_type = 0xFF
+            head = [(msg.id >> 8) & 0xFF, msg.id & 0xFF]
         d = head + msg.data
-        self.send_frame(d)
+        self.send_frame(frame_type, d)
         msg.time = self.gettime() - self.starttime
 
 class UDPOptions(optparse.OptionParser):
@@ -192,14 +205,8 @@ if __name__ == '__main__':
 
         class UCC(UDPCanChannel):
             def dump_msg(self, m):
-                if m.sent:
-                    try:
-                        self.count += 1
-                    except:
-                        self.count = 0
-                    m.count = self.count
-                fmt = '%05d %8.3f %08X %08X %d:%s\n'
-                s = fmt % (m.count, m.time, m.id, m.addr(), m.dlc(), m.data_str())
+                fmt = '%8.3f %08X %08X %d:%s\n'
+                s = fmt % (m.time, m.id, m.addr(), m.dlc(), m.data_str())
                 if m.sent:
                     sys.stdout.write('W ' + s)
                 else:
@@ -219,7 +226,7 @@ if __name__ == '__main__':
                             msg = canmsg.CanMsg()
                             msg.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
                             msg.flags = canmsg.canMSG_EXT
-                            msg.data = [0x00, 84, (m.id >> 24) & 0xFF, (m.id >> 16) & 0xFF, (m.id >> 8) & 0xFF, m.id & 0xFF, 3, 0]
+                            msg.data = [0x00, 84, (m.id >> 24) & 0xFF, (m.id >> 16) & 0xFF, (m.id >> 8) & 0xFF, m.id & 0xFF, 2, 58]
                             self.outqueue.append(msg)
                 if self.exception:
                     raise self.exception
@@ -234,7 +241,6 @@ if __name__ == '__main__':
                         self.last_idle = True
                     return
                 m = canmsg.CanMsg()
-                m.count = self.count
                 if c == 'o':
                     m.id = (canmsg.GROUP_POUT << 27) | (BUID << 3) | canmsg.TYPE_OUT
                     m.flags = canmsg.canMSG_EXT
