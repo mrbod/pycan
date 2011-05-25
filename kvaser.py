@@ -7,6 +7,7 @@ import time
 import canchannel
 import canmsg
 import optparse
+import interface
 
 canBITRATE_1M = -1
 canBITRATE_500K = -2
@@ -47,10 +48,6 @@ canDRIVER_OFF = 0
 
 canOK = 0
 canERR_NOMSG = -2
-
-def debug(str):
-    sys.stdout.write(str)
-    sys.stdout.flush()
 
 class KvaserCanChannel(canchannel.CanChannel):
     def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
@@ -169,47 +166,44 @@ class KvaserOptions(optparse.OptionParser):
 def parse_args():
     return KvaserOptions().parse_args()
 
-def main(channel):
-    canchannel.main(channel)
-
 if __name__ == '__main__':
-    try:
-        opts, args = parse_args()
+    opts, args = parse_args()
 
-        class KCC(KvaserCanChannel):
-            def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
-                super(KCC, self).__init__(channel, bitrate, silent)
+    # Example Kvaser subclass.
+    # Useful as generic logger...
+    class KCC(KvaserCanChannel):
+        def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
+            super(KCC, self).__init__(channel, bitrate, silent)
 
-            def message_handler(self, m):
-                print m
+        def message_handler(self, m):
+            self.log(str(m))
 
-            def action_handler(self, c):
-                if c == 'l':
-                    m = canmsg.CanMsg()
-                    m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
-                    m.flags = canmsg.canMSG_STD
-                    for i in range(100):
-                        m.data = [i >> 8, i & 0xFF]
-                        self.write(m)
-                elif c == 's':
-                    m = canmsg.CanMsg()
-                    m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
-                    m.flags = canmsg.canMSG_STD
-                    m.data = [ord(c) for c in 'hejsan']
+        def action_handler(self, c):
+            if c == 'l':
+                m = canmsg.CanMsg()
+                m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
+                m.flags = canmsg.canMSG_STD
+                for i in range(100):
+                    m.data = [i >> 8, i & 0xFF]
                     self.write(m)
-                else:
-                    try:
-                        self.i += 1
-                    except:
-                        self.i = 0
-                    m = canmsg.CanMsg()
-                    m.id = (canmsg.GROUP_PIN << 27) | (1 << 3) | canmsg.TYPE_IN
-                    m.flags = canmsg.canMSG_EXT
-                    m.data = [self.i & 0xFF]
-                    self.write(m)
+            elif c == 's':
+                m = canmsg.CanMsg()
+                m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
+                m.flags = canmsg.canMSG_STD
+                m.data = [ord(c) for c in 'hejsan']
+                self.write(m)
+            else:
+                try:
+                    self.i += 1
+                except:
+                    self.i = 0
+                m = canmsg.CanMsg()
+                m.id = (canmsg.GROUP_PIN << 27) | (1 << 3) | canmsg.TYPE_IN
+                m.flags = canmsg.canMSG_EXT
+                m.data = [self.i & 0xFF]
+                self.write(m)
 
-        cc = KCC(channel=opts.channel, bitrate=opts.bitrate, silent=opts.silent)
-        main(cc)
-    except KeyboardInterrupt:
-        pass
+    cc = KCC(channel=opts.channel, bitrate=opts.bitrate, silent=opts.silent)
+    interface = interface.Interface(cc)
+    interface.run()
 

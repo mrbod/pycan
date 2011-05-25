@@ -23,12 +23,15 @@ class BICAN(kvaser.KvaserCanChannel):
         self.activated = None
         self._activate = True
         self.send_cnt = 0
+        self.send_tot = 0
         self.recv_cnt = 0
+        self.recv_tot = 0
         self.send_primary = False
         self.exception = None
         self.run_primary = False
         self.load = False
         kvaser.KvaserCanChannel.__init__(self, silent=silent, channel=channel, bitrate=kvaser.canBITRATE_125K)
+        self.log_time = self.gettime()
         self.thread.start()
 
     def activate(self):
@@ -44,6 +47,7 @@ class BICAN(kvaser.KvaserCanChannel):
 
     def run(self):
         T0 = self.gettime()
+        loggT = T0
         try:
             try:
                 while self.run_thread:
@@ -51,6 +55,14 @@ class BICAN(kvaser.KvaserCanChannel):
                     if (T - T0) > 0.01:
                         self.activate()
                         T0 = T
+                    dt = T - loggT
+                    if dt > 1.0:
+                        loggT = T
+                        sfps = self.send_cnt / dt
+                        self.send_cnt = 0
+                        self.log('{0:.3f}'.format(sfps))
+                        rfps = self.recv_cnt / dt
+                        self.recv_cnt = 0
                     for m in self.nodes:
                         if (T - m.time) > 0.4:
                             self.write(m)
@@ -58,7 +70,7 @@ class BICAN(kvaser.KvaserCanChannel):
                 self.exception = e
                 raise
         finally:
-            sys.stderr.write('send: %d\nrecv: %d\n' % (self.send_cnt, self.recv_cnt))
+            sys.stderr.write('send: %d\nrecv: %d\n' % (self.send_tot, self.recv_tot))
             sys.stderr.flush()
 
     def action_handler(self, c):
@@ -87,13 +99,10 @@ class BICAN(kvaser.KvaserCanChannel):
             raise self.exception
         if m.sent:
             self.send_cnt += 1
-            if (self.send_cnt % 100) == 0:
-                t = self.gettime()
-                sfps = self.send_cnt / t
-                rfps = self.recv_cnt / t
-                self.log('{3:0.3f} fps, send: {0.send_cnt}({1:0.3f}) recv: {0.recv_cnt}({2:0.3f})'.format(self, sfps, rfps, sfps + rfps))
+            self.send_tot += 1
         else:
             self.recv_cnt += 1
+            self.recv_tot += 1
             if m.extended() and (m.addr() <= self.max_addr):
                 if m.type() == canmsg.TYPE_OUT:
                     if m.group() == canmsg.GROUP_CFG:
@@ -124,4 +133,3 @@ if __name__ == '__main__':
         kvaser.main(c)
     finally:
         c.exit_handler()
-        logger.active = False

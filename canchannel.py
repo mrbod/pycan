@@ -1,20 +1,16 @@
 #!/usr/bin/env python
-import sys
-import os
 import time
 import canmsg
-import optparse
-import interface
 import threading
-import logthread
-
-logger = logthread.Logger()
 
 class CanChannel(object):
     def __init__(self):
         self.starttime = time.time()
         self.T0 = self.gettime()
         self._write_lock = threading.Lock()
+        self.logger = None
+        self.read_cnt = 0
+        self.write_cnt = 0
     
     def open(self):
         self.starttime = time.time()
@@ -44,6 +40,7 @@ class CanChannel(object):
         finally:
             pass
         if m:
+            self.read_cnt += 1
             m.channel = self
             self.message_handler(m)
         return m
@@ -57,62 +54,31 @@ class CanChannel(object):
             self.do_write(msg)
         finally:
             self._write_lock.release()
+        self.write_cnt += 1
         msg.channel = self
         msg.sent = True
         self.message_handler(msg)
 
+    def info(self, row, x):
+        if self.logger != None:
+            self.logger.info(row, x)
+
     def log(self, x):
-        logger.log(x)
+        if self.logger != None:
+            self.logger.log(x)
 
     def action_handler(self, key):
         pass
 
     def message_handler(self, m):
-        pass
+        self.log(str(m))
 
     def exit_handler(self):
         pass
 
-def script_parser(script):
-    err = ''
-    s_handler = 'message_handler'
-    s_action = 'action_handler'
-    s_exit = 'exit_handler'
-    try:
-        basedict = {}
-        execfile(script, basedict)
-        d = {}
-        setattr(parser.values, option.dest, d)
-        d[s_handler] = basedict.get(s_handler, None)
-        d[s_action] = basedict.get(s_action, None)
-        d[s_exit] = basedict.get(s_exit, None)
-        if d[s_handler] == None:
-            err = 'No \'%s\' function specified in \'%s\'.' % (s_handler, value)
-        elif d[s_action] == None:
-            err = 'No \'%s\' function specified in \'%s\'.' % (s_action, value)
-        elif d[s_exit] == None:
-            err = 'No \'%s\' function specified in \'%s\'.' % (s_exit, value)
-    except IOError, e:
-        err = 'Filter file: %s' % e
-    if err <> '':
-        raise optparse.OptionValueError(err)
-    return d
-
-def main(channel):
-    try:
-        interface.main(channel)
-    finally:
-        logger.active = False
-        channel.exit_handler()
-
 if __name__ == '__main__':
-    try:
-        class CCC(CanChannel):
-            def message_handler(self, m):
-                self.log(m)
-
-        ch = CCC()
-        main(ch)
-    except KeyboardInterrupt:
-        pass
+    import interface
+    ch = CanChannel()
+    interface = interface.Interface(ch)
+    interface.run()
 
