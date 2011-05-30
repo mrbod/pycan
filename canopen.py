@@ -3,13 +3,12 @@ import canmsg
 import sys
 import time
 import threading
-import kvaser
+import socketcan
 import interface
 
-class CanOpen(kvaser.KvaserCanChannel):
+class CanOpen(socketcan.SocketCanChannel):
     def __init__(self, ch=0, silent=False):
-        br = kvaser.canBITRATE_100K
-        super(CanOpen, self).__init__(channel=ch, bitrate=br, silent=silent)
+        super(CanOpen, self).__init__()
 
     def action_handler(self, c):
         pass

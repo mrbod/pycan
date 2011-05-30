@@ -1,3 +1,13 @@
+STCAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
+STCAN_TYPE = ('OUT', 'IN', 'UD2', 'UD3', 'UD4', 'MON', 'UD6')
+GROUP_POUT = 0
+GROUP_PIN = 1
+GROUP_SEC = 2
+GROUP_CFG = 3
+TYPE_OUT = 0
+TYPE_IN = 1
+TYPE_MON = 5
+
 canMSG_RTR = 0x0001      # Message is a remote request
 canMSG_STD = 0x0002      # Message has a standard ID
 canMSG_EXT = 0x0004      # Message has an extended ID
@@ -50,66 +60,56 @@ flag_texts = {
         canMSGERR_BIT1: 'BIT1',
         }
 
-class CanMsg(object):
-    def __init__(self, id=0, data=[], extended=False, time=0, channel=None, dlc=None, sent=False):
-        if isinstance(data, type(self)):
-            self.id = data.id
-            self.data = [b for b in data.data]
-            self.extended = data.extended
+class StCanMsg(canmsg.CanMsg):
+    def addr(self):
+        if self.extended():
+            return (self.id >> 3) & 0x00FFFFFF
         else:
-            self.id = id
-            self.data = data
-            self.extended = extended
-        self.time = time
-        if isinstance(dlc, int):
-            L = len(self.data)
-            if L < dlc:
-                self.data += (dlc - L) * [0]
-            else:
-                self.data = self.data[0:dlc]
-        self.channel = channel
-        self.sent = sent
+            return (self.id >> 3) & 0x3f
 
-    def dlc(self):
-        return len(self.data) 
+    def group(self):
+        if self.extended():
+            return (self.id >> 27) & 0x3
+        else:
+            return (self.id >> 9) & 0x3
 
-    def extended(self):
-        return self.extended
+    def sgroup(self):
+        try:
+            return STCAN_GROUP[self.group()]
+        except:
+            return '**'
 
-    def data_str(self):
-        t = ['%02X' % d for d in self.data]
-        return '[' + ', '.join(t) + ']'
+    def type(self):
+        return self.id & 0x7
+
+    def stype(self):
+        try:
+            return STCAN_TYPE[self.type()]
+        except:
+            return '**'
+
+    def stcan(self):
+        if (self.flags & canMSG_EXT) != 0:
+            fmt = '%4s,%08X,%-3s'
+        else:
+            fmt = '%4s,%02X,%-3s'
+        return fmt % (self.sgroup(), self.addr(), self.stype())
+
+    def get_word(self, index):
+        d = self.data
+        s = 2 * index
+        return (d[s] << 8) + d[s+1]
+
+    def set_word(self, index, word):
+        d = self.data
+        s = 2 * index
+        d[s] = (word >> 8) & 0xFF
+        d[s+1] = word & 0xFF
 
     def __str__(self):
         dlc = self.dlc()
         m = self.data_str()
-        fmt = '{0:8X} {1:9.3f} {2}{3:<32s}'
-        return fmt.format(self.id, self.time, dlc, m)
-
-    def __repr__(self):
-        m = self.__module__
-        n = self.__class__.__name__
-        f = [self.flags & (1 << x) for x in range(16)]
-        f = [flags_inv[x] for x in f if flags_inv.has_key(x)]
-        if f:
-            f = ' | '.join(['%s.%s' % (m, x) for x in f])
-        else:
-            f = '0'
-        vals = (m, n, self.id, str(self.data), f, self.time)
-        return '%s.%s(id=%d, data=%s, flags=%s, time=%d)' % vals
-
-    def __eq__(self, other):
-        if not other:
-            return False
-        if self.id != other.id:
-            return False
-        if len(self.data) != len(other.data):
-            return False
-        for i in range(len(self.data)):
-            if self.data[i] != other.data[i]:
-                return False
-        return True
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
+        fmt = '%08X %s %9.3f %d%-32s'
+        args = (self.id, self.stcan(), self.time, dlc, m)
+        return fmt % args
 

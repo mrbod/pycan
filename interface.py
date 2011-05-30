@@ -3,6 +3,7 @@ import time
 import curses
 import threading
 import sys
+import canmsg
 
 class LoggerThread(threading.Thread):
     def __init__(self, logwin, infowin):
@@ -152,6 +153,10 @@ class Interface(object):
             dy = my - 3
             if c == 'q':
                 return True
+            elif c == 'y':
+                m = canmsg.CanMsg(id=0x7FF, data=[1,2,3,4,5])
+                self.channel.write(m)
+                return False
             if c == 'KEY_DOWN':
                 self.scroll(1)
             elif c == 'KEY_NPAGE':
@@ -166,7 +171,7 @@ class Interface(object):
                 self.update()
             elif c == 's':
                 self.logger.save('dump')
-            elif c == 0x1B: #ord('S'):
+            elif c == '^[':
                 self.scrolling = False
                 self.line = 0
                 self.update()
@@ -222,7 +227,8 @@ class Interface(object):
             statistics = Statistics(T0)
             while True:
                 if not self.pause:
-                    self.channel.read()
+                    if self.channel.read():
+                        self.update()
                 if self.input():
                     break
                 T = time.time()
