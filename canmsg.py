@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 canMSG_RTR = 0x0001      # Message is a remote request
 canMSG_STD = 0x0002      # Message has a standard ID
 canMSG_EXT = 0x0004      # Message has an extended ID
@@ -50,41 +51,39 @@ flag_texts = {
         canMSGERR_BIT1: 'BIT1',
         }
 
+class Data(list):
+    __fmt1 = '{0:02X}'
+
+    def __init__(self, data):
+        super(Data, self).__init__(data)
+
+    def __str__(self):
+        t = [self.__fmt1.format(d) for d in self]
+        return ', '.join(t)
+
 class CanMsg(object):
-    def __init__(self, id=0, data=[], extended=False, time=0, channel=None, dlc=None, sent=False):
+    __mfmt = '{0.id:8X} {0.time:9.3f} {0.dlc}: {0.data:<32s}'
+
+    def __init__(self, id=0, data=[], extended=False, time=0.0, channel=None, sent=False):
         if isinstance(data, type(self)):
             self.id = data.id
-            self.data = [b for b in data.data]
+            self.data = Data([b for b in data.__data])
             self.extended = data.extended
         else:
             self.id = id
-            self.data = data
+            self.data = Data(data)
             self.extended = extended
+        self.dlc = len(self.data)
         self.time = time
-        if isinstance(dlc, int):
-            L = len(self.data)
-            if L < dlc:
-                self.data += (dlc - L) * [0]
-            else:
-                self.data = self.data[0:dlc]
         self.channel = channel
         self.sent = sent
 
-    def dlc(self):
-        return len(self.data) 
-
-    def extended(self):
-        return self.extended
-
-    def data_str(self):
-        t = ['%02X' % d for d in self.data]
-        return '[' + ', '.join(t) + ']'
+    def set_data(self, data):
+        self.data = Data(data)
+        self.dlc = len(self.data)
 
     def __str__(self):
-        dlc = self.dlc()
-        m = self.data_str()
-        fmt = '{0:8X} {1:9.3f} {2}{3:<32s}'
-        return fmt.format(self.id, self.time, dlc, m)
+        return self.__mfmt.format(self)
 
     def __repr__(self):
         m = self.__module__
@@ -96,7 +95,7 @@ class CanMsg(object):
         else:
             f = '0'
         vals = (m, n, self.id, str(self.data), f, self.time)
-        return '%s.%s(id=%d, data=%s, flags=%s, time=%d)' % vals
+        return '%s.%s(id=%d, data=[%s], flags=%s, time=%d)' % vals
 
     def __eq__(self, other):
         if not other:
@@ -113,3 +112,7 @@ class CanMsg(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+if __name__ == '__main__':
+    m = CanMsg()
+    print m.__sizeof__()
+    print dir(m)

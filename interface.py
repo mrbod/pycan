@@ -5,96 +5,112 @@ import threading
 import sys
 import canmsg
 
-class LoggerThread(threading.Thread):
-    def __init__(self, logwin, infowin):
-        self.logwin = logwin
-        self.infowin = infowin
-        self._txt = []
-        self.lock = threading.Lock()
-        self.active = True
-        threading.Thread.__init__(self, name='Logger')
-        self.start()
+class SlotEntry(object):
+    def __init__(self, msg):
+        self.msg = msg
+        self.cnt = 0
+        self.dt = 0.0
 
-    def stop(self):
-        self.active = False
-
-    def run(self):
-        while self.active:
-            time.sleep(0.1)
-            t = ''
-            self.lock.acquire()
-            try:
-                if self._txt:
-                    t = '\n'.join(self._txt) + '\n'
-                    self._txt = []
-            finally:
-                self.lock.release()
-            if t:
-                self.logwin.addstr(t)
-                self.logwin.refresh()
-
-    def info(self, row, txt):
-        self.infowin.addstr(row, 0, txt)
-        self.infowin.refresh()
-
-    def log(self, txt):
-        self.lock.acquire(True)
-        try:
-            self._txt.append(txt)
-        finally:
-            self.lock.release()
+    def update(self, msg):
+        self.dt = msg.time - self.msg.time
+        self.msg = msg
+        self.cnt += 1
 
 class Logger(object):
-    def __init__(self, logwin, infowin):
+    slot_fmt = '{0.dt:7.3f} {0.msg:70s}\n'
+
+    def __init__(self, logwin, infowin, static):
         self.my, self.mx = logwin.getmaxyx()
-        self._logsize = 100000
-        self.loglines = self._logsize * ['']
+        self.messages = []
+        self.max_cnt = 100000
+        self.id_slots = {}
+        self.ids = []
         self.curline = 0
+        self.last_printed = -1
         self.logwin = logwin
         self.infowin = infowin
+        self.sequencial = not static
 
     def stop(self):
         pass
 
     def save(self, filename):
         f = file(filename, 'w')
-        s = '\n'.join(self.loglines[:self.curline])
-        f.write(s)
-        f.close()
+        try:
+            for m in self.messages:
+                f.write('{0}\n'.format(m))
+        finally:
+            f.close()
         
     def clear(self):
-        self.loglines = self._logsize * ['']
+        self.messages = []
+        self.id_slots = {}
+        self.ids = []
         self.curline = 0
+        self.last_printed = -1
+        self.logwin.clear()
         self.update(0)
 
     def info(self, row, txt):
         self.infowin.addstr(row, 0, txt)
         self.infowin.noutrefresh()
 
-    def log(self, txt):
-        line = self.curline % self._logsize
-        self.loglines[line] = txt
+    def log(self, m):
+        self.messages.append(m)
+        if len(self.messages) > self.max_cnt:
+            self.messages = self.messages[self.max_cnt//10:]
+        if self.id_slots.has_key(m.id):
+            e = self.id_slots[m.id]
+        else:
+            e = SlotEntry(m)
+            self.id_slots[m.id] = e
+            self.ids.append(m.id)
+            self.ids.sort()
+        e.update(m)
         self.curline = self.curline + 1
         
+    def sequencial_toggle(self):
+        self.sequencial = not self.sequencial
+        self.last_printed = len(self.messages) - self.my
+        self.logwin.clear()
+
     def home(self):
         L = self.my
         self.update(L)
         return L
 
-    def update(self, showline=0):
-        if showline > 0:
-            line = showline
+    def update_sequential(self, showline):
+        if showline >= 0:
+            if showline != self.last_printed:
+                self.last_printed = showline
+                start = showline - self.my
+                if start < 0:
+                    start = 0
+                ms = self.messages[start:showline]
+                for m in ms:
+                    self.logwin.addstr(str(m) + '\n')
         else:
-            line = self.curline
-        line = line % self._logsize
-        start = line - self.my
-        if start < 0:
-            lines = self.loglines[start:] + self.loglines[:line]
+            L = len(self.messages)
+            if L - self.last_printed > self.my:
+                ms = self.messages[L - self.my:L]
+            else:
+                ms = self.messages[self.last_printed:L]
+            self.last_printed = L
+            for m in ms:
+                self.logwin.addstr(str(m) + '\n')
+
+    def update_slots(self):
+        self.logwin.move(0, 0)
+        for id in self.ids:
+            if self.id_slots.has_key(id):
+                e = self.id_slots[id]
+                self.logwin.addstr(self.slot_fmt.format(e))
+
+    def update(self, showline=-1):
+        if self.sequencial:
+            self.update_sequential(showline)
         else:
-            lines = self.loglines[start:line]
-        s = '\n'.join(lines)
-        self.logwin.addstr('\n')
-        self.logwin.addstr(0, 0, s)
+            self.update_slots()
         self.logwin.noutrefresh()
         curses.doupdate()
 
@@ -134,11 +150,13 @@ class Statistics(object):
         return '{0:<8s} {1:<20s} {2:<20s} {3:<20s}'.format(T, R, W, TOT)
 
 class Interface(object):
-    def __init__(self, channel):
+    def __init__(self, channel, static=False):
+        self.statistics = Statistics(self.time())
         self.channel = channel
-        self.pause = False
-        self.line = 0
+        self.line = -1
         self.scrolling = False
+        self.static = static
+        self.mycmd = {'q':'QUIT', 'p':'SAVE', 's':'STATIC_TOGGLE', '[7~': 'KEY_HOME', '[8~':'KEY_END', '[3^':'CLEAR'}
 
     def run(self):
         try:
@@ -151,46 +169,79 @@ class Interface(object):
         if c != None:
             my, mx = self.logwin.getmaxyx()
             dy = my - 3
-            if c == 'q':
-                return True
-            elif c == 'y':
-                m = canmsg.CanMsg(id=0x7FF, data=[1,2,3,4,5])
-                self.channel.write(m)
-                return False
-            if c == 'KEY_DOWN':
-                self.scroll(1)
-            elif c == 'KEY_NPAGE':
-                self.scroll(dy)
-            elif c == 'KEY_UP':
-                self.scroll(-1)
-            elif c == 'KEY_PPAGE':
-                self.scroll(-dy)
-            elif c == 0x7E: #curses.KEY_HOME:
-                self.line = self.logger.home()
-                self.scrolling = True
-                self.update()
-            elif c == 's':
-                self.logger.save('dump')
-            elif c == '^[':
-                self.scrolling = False
-                self.line = 0
-                self.update()
-            elif c == 940: #curses.KEY_CDEL
-                self.logger.clear()
-                self.line = 0
-            elif self.channel.action_handler(c):
-                return True
-            else:
-                self.logger.info(3, '{0:<20}'.format(c))
+            foo = ''
+            while c != None:
+                foo = foo + c
+                if (ord(c[0]) == 27): #ESC
+                    txt = ''
+                    x = self.getkey()
+                    while x != None:
+                        txt = txt + x
+                        x = self.getkey()
+                    c = self.mycmd.get(txt, '')
+                    if c == '':
+                        #self.logger.info(6, '{0:<40}'.format(list(txt)))
+                        pass
+                if c == 'QUIT':
+                    return True
+                elif c == 'y':
+                    m = canmsg.CanMsg(id=0x7FF, data=[1,2,3,4,5])
+                    self.channel.write(m)
+                    return False
+                elif c == 'KEY_DOWN':
+                    self.scroll(1)
+                elif c == 'KEY_NPAGE':
+                    self.scroll(dy)
+                elif c == 'KEY_UP':
+                    self.scroll(-1)
+                elif c == 'KEY_PPAGE':
+                    self.scroll(-dy)
+                elif c == 'KEY_END':
+                    self.scrolling = False
+                    self.line = -1
+                    self.update()
+                elif c == 'KEY_HOME':
+                    self.line = self.logger.home()
+                    self.scrolling = True
+                    self.update()
+                elif c == 'STATIC_TOGGLE':
+                    self.logger.sequencial_toggle()
+                elif c == 'SAVE':
+                    self.logger.save('dump')
+                elif c == 'KEY_ESC':
+                    self.scrolling = False
+                    self.line = -1
+                    self.update()
+                elif c == 'CLEAR': #curses.KEY_CDEL
+                    self.logger.clear()
+                    self.statistics = Statistics(self.time())
+                    self.channel.read_cnt = 0
+                    self.channel.write_cnt = 0
+                    self.line = -1
+                elif self.channel.action_handler(c):
+                    return True
+                else:
+                    #self.logger.info(3, '{0:<20}'.format(c))
+                    pass
+                c = self.getkey()
+            #self.logger.info(4, '{0:<40}'.format(foo))
+            #d = [ord(x) for x in foo]
+            #self.logger.info(5, '{0:<40}'.format(str(d)))
         return False
+
+    def time(self):
+        return time.time()
 
     def scroll(self, lines):
         cur = self.logger.curline
         if self.scrolling:
+            my, mx = self.logwin.getmaxyx()
             self.line += lines
             if self.line > cur:
-                self.line = 0
+                self.line = -1
                 self.scrolling = False
+            elif self.line < my:
+                self.line = my
             self.update()
         elif lines < 0:
             self.line = cur + lines
@@ -219,27 +270,32 @@ class Interface(object):
         self.logwin = logwin
         logwin.scrollok(True)
         mainwin.keypad(True)
-        self.logger = Logger(logwin, infowin)
+        mainwin.leaveok(0)
+        logwin.leaveok(0)
+        infowin.leaveok(0)
+        self.logger = Logger(logwin, infowin, self.static)
         self.channel.logger = self.logger
         try:
             logwin.nodelay(True)
-            T0 = time.time()
-            statistics = Statistics(T0)
+            T0 = self.time()
+            UT0 = T0
             while True:
-                if not self.pause:
-                    if self.channel.read():
+                T = self.time()
+                if self.channel.read():
+                    dt = T - UT0
+                    if dt > 0.01:
+                        UT0 = T
                         self.update()
                 if self.input():
                     break
-                T = time.time()
                 dT = T - T0
                 if dT > 1.01:
                     T0 = T
                     c = self.channel
                     R = c.read_cnt
                     W = c.write_cnt
-                    statistics.update(T, R, W)
-                    self.logger.info(1, str(statistics))
+                    self.statistics.update(T, R, W)
+                    self.logger.info(1, str(self.statistics))
                     self.update()
         finally:
             self.channel.exit_handler()

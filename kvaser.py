@@ -129,7 +129,7 @@ class KvaserCanChannel(canchannel.CanChannel):
             if res == 0:
                 break
             elif cnt % 50 == 0:
-                self.log('written {0} times'.format(cnt))
+                self.info('written {0} times'.format(cnt))
             elif cnt > 10000:
                 raise Exception('do_write failed(%d)' % res)
         msg.time = self.gettime()
@@ -174,9 +174,6 @@ if __name__ == '__main__':
     class KCC(KvaserCanChannel):
         def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
             super(KCC, self).__init__(channel, bitrate, silent)
-
-        def message_handler(self, m):
-            self.log(str(m))
 
         def action_handler(self, c):
             if c == 'l':

@@ -1,25 +1,17 @@
 #!/bin/env python
 import canmsg
 import sys
-import time
-import threading
 import socketcan
-import interface
 
-class CanOpen(socketcan.SocketCanChannel):
-    def __init__(self, ch=0, silent=False):
-        super(CanOpen, self).__init__()
+class CanOpenMsg(canmsg.CanMsg):
+    __mfmt = '{0.id:03X} {1:<20s} node:{2:02X} {0.time:9.3f} {0.dlc}: {0.data:<32s}'
 
-    def action_handler(self, c):
-        pass
-
-    def message_handler(self, m):
-        dlc = m.dlc()
-        fc = m.id & 0x780
-        node = m.id & 0x7F
+    def __str__(self):
+        fc = self.id & 0x780
+        node = self.id & 0x7F
         if fc == 0x00:
-            cmd = m.data[0]
-            node = m.data[1]
+            cmd = self.data[0]
+            node = self.data[1]
             if cmd == 1:
                 desc = 'NMT START'
             elif cmd == 2:
@@ -34,14 +26,14 @@ class CanOpen(socketcan.SocketCanChannel):
                 desc = 'NMT ????'
         elif fc == 0x80:
             if node == 0:
-                if dlc == 1:
-                    desc = 'SYNC %02X' % m.data[0]
-                elif dlc == 0:
+                if self.dlc == 1:
+                    desc = 'SYNC %02X' % self.data[0]
+                elif self.dlc == 0:
                     desc = 'SYNC'
                 else:
                     desc = 'SYNC????'
             else:
-                x = m.data[0] + (m.data[1] * 256)
+                x = self.data[0] + (self.data[1] * 256)
                 desc = 'EMCY 0x%04X' % x
         elif (fc >= 0x180) and (fc < 0x580):
             if (fc & 0x80) > 0:
@@ -54,7 +46,7 @@ class CanOpen(socketcan.SocketCanChannel):
             else:
                 desc = 'RSDO'
         elif fc == 0x700:
-            x = m.data[0] & 0x7F
+            x = self.data[0] & 0x7F
             if x == 0:
                 desc = 'NMTEC BOOT'
             elif x == 4:
@@ -67,17 +59,34 @@ class CanOpen(socketcan.SocketCanChannel):
                 desc = 'NMTEC ????'
         else:
             desc = '????'
-        d = m.data_str()
-        fmt = '%03X %-20s node:%02X %9.3f %d%-32s'
-        args = (m.id, desc, node, m.time, dlc, d)
-        self.log(fmt % args)
+        return self.__mfmt.format(self, desc, node)
+
+def parse_stdin():
+    import re
+    rmsg = re.compile(r'^\s*(\d+\.\d+)\s+\d\s+(\d+)\s+\w+\s+d\s+(\d)\s(.*)$')
+    msg = CanOpenMsg()
+    for line in sys.stdin:
+        o = rmsg.match(line.strip())
+        if o:
+            t, id, dlc, data = o.groups()
+            data = [int(x, 16) for x in data.split()]
+            msg.id = int(id, 16)
+            msg.time = float(t)
+            msg.data = data
+            print msg
 
 if __name__ == '__main__':
-    silent = False
+    #import cProfile
+    import interface
+    static = False
     for o in sys.argv[1:]:
         if o == '-s':
-            silent = True
-    channel = CanOpen(0, silent=silent)
-    interface = interface.Interface(channel)
-    interface.run()
+            static = True
+        elif o == '-':
+            parse_stdin()
+            sys.exit(0)
+    c = socketcan.SocketCanChannel(0, msg_class=CanOpenMsg)
+    i = interface.Interface(c, static=static)
+    i.run()
+    #cProfile.run('i.run()', 'profile')
 

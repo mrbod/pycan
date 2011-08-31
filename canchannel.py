@@ -4,19 +4,20 @@ import canmsg
 import threading
 
 class CanChannel(object):
-    def __init__(self):
+    def __init__(self, msg_class=canmsg.CanMsg):
         self.starttime = time.time()
         self.T0 = self.gettime()
         self._write_lock = threading.Lock()
         self.logger = None
         self.read_cnt = 0
         self.write_cnt = 0
+        self.msg_class = msg_class
     
     def open(self):
         self.starttime = time.time()
 
     def close(self):
-        self.log('duration %.3fs' % self.gettime())
+        pass
 
     def __del__(self):
         self.close()
@@ -28,7 +29,7 @@ class CanChannel(object):
         T = self.gettime()
         if T - self.T0 > 2:
             self.T0 = T
-            m = canmsg.CanMsg()
+            m = self.msg_class()
             m.time = T
             return m
         return None
@@ -71,7 +72,7 @@ class CanChannel(object):
         pass
 
     def message_handler(self, m):
-        self.log(str(m))
+        self.log(m)
 
     def exit_handler(self):
         pass
