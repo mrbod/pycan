@@ -87,16 +87,17 @@ class App(object):
         
     def run(self):
         while self._run:
-            time.sleep(0.1)
+            time.sleep(0.0)
             self._lock.acquire()
             try:
                 try:
-                    node = random.choice(self._xnodes)
-                    if node.data[0] != 0:
-                        node.data[0] = 1
-                    else:
-                        node.data[0] = 0
-                    self.channel.write(node)
+                    for i in range(20):
+                        node = random.choice(self._xnodes)
+                        if node.data[0] != 0:
+                            node.data[0] = 1
+                        else:
+                            node.data[0] = 0
+                        self.channel.write(node)
                 except:
                     pass
             finally:
@@ -132,9 +133,9 @@ class UDPCanChannel(canchannel.CanChannel):
         return 0x00
 
     def send_frame(self, frame_type, frame):
-        head = [frame_type]
-        head.append((self.count_out >> 8) & 0xFF)
-        head.append(self.count_out & 0xFF)
+        head = [frame_type
+                , (self.count_out >> 8) & 0xFF
+                , self.count_out & 0xFF]
         frame = head + frame
         cs = self.checksum(frame)
         self.dle_handler.send(frame + [cs])
@@ -208,6 +209,15 @@ class UDPCanChannel(canchannel.CanChannel):
             m.flags = canmsg.canMSG_EXT
             m.id = (frame[3] << 24) | (frame[4] << 16) | (frame[5] << 8) | frame[6]
             m.data = frame[7:-1]
+        elif frame[0] == 0x02:
+            err_type = (frame[3] << 8) | frame[4]
+            if err_type == 1:
+                exp = (frame[5] << 8) | frame[6]
+                rec = (frame[7] << 8) | frame[8]
+                s = 'GW DROPPED FRAMES: expected {0}, got {1}'
+                self.log(s.format(exp, rec))
+            else:
+                self.log('Unknown dle error: {0}'.format(err_type))
         else:
             return None
         return m
@@ -364,29 +374,21 @@ if __name__ == '__main__':
                         self.last_idle = True
                     return
                 m = canmsg.CanMsg()
+                m.flags = canmsg.canMSG_EXT
                 if c == 'o':
                     m.id = (canmsg.GROUP_POUT << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [0x01]
-                    self.write(m)
                 elif c == 'O':
                     m.id = (canmsg.GROUP_POUT << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [0x00]
-                    self.write(m)
                 elif c == 'r':
                     m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [0, 86, 0, 1]
-                    self.write(m)
                 elif c in 'u':
                     m.id = (canmsg.GROUP_SEC << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [0x00, 40, 0x0C, 0x00, 0x00, 0x01]
-                    self.write(m)
                 elif c in 'mM1!2"3#':
                     m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     if c == 'm':
                         m.data = [0x00, 84, 0x0C, 0x00, 0x00, 0x01, 3, 0]
                     elif c == 'M':
@@ -403,48 +405,34 @@ if __name__ == '__main__':
                         m.data = [0x00, 84, 0x0C, 0x00, 0x00, 0x59, 3, 0]
                     elif c == '#':
                         m.data = [0x00, 84, 0x0C, 0x00, 0x00, 0x59, 0, 0]
-                    self.write(m)
                 elif c in 'rR':
                     m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     if c == 'r':
                         m.data = [0x00, 85, 0, 0, 0, 7, 1, 0]
                     else:
                         m.data = [0x00, 85, 0, 0, 0, 7, 0, 0]
-                    self.write(m)
                 elif c == 'v':
                     m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [0, 99, 0, 30]
-                    self.write(m)
                 elif c == 'V':
                     m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [0, 99, 0, 31]
-                    self.write(m)
                 elif c == 's':
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [0, 99, 0, 92]
-                    self.write(m)
                 elif c == 't':
                     m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [0, 87, 0, 0, 0x05, 0xDC]
-                    self.write(m)
                 elif c == 'a':
                     m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [0, 99, 0, 93]
-                    self.write(m)
                 else:
                     try:
                         self.i += 1
                     except:
                         self.i = 0
                     m.id = 7
-                    m.flags = canmsg.canMSG_EXT
                     m.data = [self.i & 0xFF]
-                    self.write(m)
+                self.write(m)
 
         cc = UCC(ip = args[0], port = int(args[1]))
         try:
