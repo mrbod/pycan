@@ -69,11 +69,11 @@ def parse_stdin():
         o = rmsg.match(line.strip())
         if o:
             t, id, dlc, data = o.groups()
-            data = [int(x, 16) for x in data.split()]
+            msg.data = [int(x, 16) for x in data.split()]
             msg.id = int(id, 16)
             msg.time = float(t)
-            msg.data = data
-            print msg
+            sys.stdout.write(str(msg))
+            sys.stdout.write('\n')
 
 if __name__ == '__main__':
     #import cProfile

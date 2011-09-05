@@ -56,6 +56,7 @@ class Data(list):
 
     def __init__(self, data):
         super(Data, self).__init__(data)
+        self.dlc = len(self)
 
     def __str__(self):
         t = [self.__fmt1.format(d) for d in self]
@@ -67,20 +68,27 @@ class CanMsg(object):
     def __init__(self, id=0, data=[], extended=False, time=0.0, channel=None, sent=False):
         if isinstance(data, type(self)):
             self.id = data.id
-            self.data = Data([b for b in data.__data])
+            self.data = [b for b in data.__data]
             self.extended = data.extended
         else:
             self.id = id
-            self.data = Data(data)
+            self._data = data
             self.extended = extended
-        self.dlc = len(self.data)
         self.time = time
         self.channel = channel
         self.sent = sent
 
-    def set_data(self, data):
-        self.data = Data(data)
-        self.dlc = len(self.data)
+    @property
+    def dlc(self):
+        return self._data.dlc
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, data):
+        self._data = Data(data)
 
     def __str__(self):
         return self.__mfmt.format(self)
@@ -94,7 +102,7 @@ class CanMsg(object):
             f = ' | '.join(['%s.%s' % (m, x) for x in f])
         else:
             f = '0'
-        vals = (m, n, self.id, str(self.data), f, self.time)
+        vals = (m, n, self.id, str(self._data), f, self.time)
         return '%s.%s(id=%d, data=[%s], flags=%s, time=%d)' % vals
 
     def __eq__(self, other):
@@ -102,10 +110,10 @@ class CanMsg(object):
             return False
         if self.id != other.id:
             return False
-        if len(self.data) != len(other.data):
+        if len(self._data) != len(other._data):
             return False
-        for i in range(len(self.data)):
-            if self.data[i] != other.data[i]:
+        for i in range(len(self._data)):
+            if self._data[i] != other._data[i]:
                 return False
         return True
 
