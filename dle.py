@@ -22,7 +22,7 @@ class StdIOPort(object):
 
 class DLEHandler(object):
     def __init__(self, port=None):
-        if port:
+        if port != None:
             self.port = port
         else:
             self.port = StdIOPort()
@@ -114,3 +114,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

@@ -143,7 +143,7 @@ class Statistics(object):
         self.TOTf = self.TOT / self.T
 
     def __str__(self):
-        T = 'T{0.T0:5.1f}'.format(self)
+        T = 'T{0.T0:>5.1f}'.format(self)
         R = 'R {0.R0:d} {0.Rf:.1f}({0.Rf_max:.1f})'.format(self)
         W = 'W {0.W0:d} {0.Wf:.1f}({0.Wf_max:.1f})'.format(self)
         TOT= 'TOT {0.TOT:d}({0.TOTf:.1f})'.format(self)
@@ -184,10 +184,6 @@ class Interface(object):
                         pass
                 if c == 'QUIT':
                     return True
-                elif c == 'y':
-                    m = canmsg.CanMsg(id=0x7FF, data=[1,2,3,4,5])
-                    self.channel.write(m)
-                    return False
                 elif c == 'KEY_DOWN':
                     self.scroll(1)
                 elif c == 'KEY_NPAGE':
@@ -220,13 +216,7 @@ class Interface(object):
                     self.line = -1
                 elif self.channel.action_handler(c):
                     return True
-                else:
-                    #self.logger.info(3, '{0:<20}'.format(c))
-                    pass
                 c = self.getkey()
-            #self.logger.info(4, '{0:<40}'.format(foo))
-            #d = [ord(x) for x in foo]
-            #self.logger.info(5, '{0:<40}'.format(str(d)))
         return False
 
     def time(self):

@@ -1,55 +1,51 @@
 #!/bin/env python
-import canmsg
+import stcan
 import sys
 import time
 import threading
-import kvaser
+import socketcan
 
 def B50_ID(uid):
     return ((1 << 23) | uid) 
 
-class BICAN(kvaser.KvaserCanChannel):
+class BICAN(socketcan.SocketCanChannel):
     def __init__(self, channel=0, silent=False):
         self.run_thread = True
         self.thread = threading.Thread(target=self.run)
         self.run_thread = True
-        self.id = B50_ID(0)
-        self.send_cnt = 0
-        self.recv_cnt = 0
+        self.id = B50_ID(0x2200)
         self.send_primary = False
         self.exception = None
         self.run_primary = False
         self.load = False
-        self.primary = canmsg.CanMsg()
-        self.primary.id = (canmsg.GROUP_PIN << 27) | (self.id << 3) | canmsg.TYPE_IN
-        self.primary.flags = canmsg.canMSG_EXT
-        self.primary.data = [0x01, 0x00]
-        kvaser.KvaserCanChannel.__init__(self, silent=silent, channel=channel, bitrate=kvaser.canBITRATE_125K)
+        socketcan.SocketCanChannel.__init__(self, channel=channel, msg_class=stcan.StCanMsg)
         self.thread.start()
+
+    def gen_primary(self):
+        primary = stcan.StCanMsg(extended=True)
+        primary.id = (stcan.GROUP_PIN << 27) | (self.id << 3) | stcan.TYPE_IN
+        primary.data = [0x01, 0x00]
+        return primary
 
     def run(self):
         T0 = time.time()
         try:
-            try:
-                while self.run_thread:
-                    if not self.load:
-                        time.sleep(0.001)
-                    T = time.time()
-                    if T - T0 > 0.4:
-                        T0 = T
-                        if self.run_primary:
-                            self.write(self.primary)
-                    elif self.send_primary:
-                        self.send_primary = False
-                        self.write(self.primary)
-                    elif self.load:
-                        self.write(self.primary)
-            except Exception, e:
-                self.exception = e
-                raise
-        finally:
-            sys.stderr.write('send: %d\nrecv: %d\n' % (self.send_cnt, self.recv_cnt))
-            sys.stderr.flush()
+            while self.run_thread:
+                if not self.load:
+                    time.sleep(0.001)
+                T = time.time()
+                if T - T0 > 0.4:
+                    T0 = T
+                    if self.run_primary:
+                        self.write(self.gen_primary())
+                elif self.send_primary:
+                    self.send_primary = False
+                    self.write(self.gen_primary())
+                elif self.load:
+                    self.write(self.gen_primary())
+        except Exception, e:
+            self.exception = e
+            raise
 
     def action_handler(self, c):
         if c == 'p':
@@ -57,14 +53,10 @@ class BICAN(kvaser.KvaserCanChannel):
         elif c == 'l':
             self.load = not self.load
         elif c == 'P':
-            d = self.primary.data[-1]
-            d +=1
-            self.primary.data[-1] = d & 0xFF
             self.send_primary = True
         elif c in 'cC':
-            config = canmsg.CanMsg()
-            config.id = (canmsg.GROUP_CFG << 27) | (self.id << 3) | canmsg.TYPE_IN
-            config.flags = canmsg.canMSG_EXT
+            config = stcan.StCanMsg(extended=True)
+            config.id = (stcan.GROUP_CFG << 27) | (self.id << 3) | stcan.TYPE_IN
             config.data = [0, 50, 0, 255, 255, 255]
             if c == 'C':
                 for i in range(1000):
@@ -73,27 +65,35 @@ class BICAN(kvaser.KvaserCanChannel):
             else:
                 self.write(config)
 
+    def handle_config(self, m):
+        index = m.get_word(0)
+        if index == 99:
+            ask = m.get_word(1)
+            if ask == 30:
+                # node type
+                i = (stcan.GROUP_CFG << 27) | (m.addr() << 3) | stcan.TYPE_IN
+                d = [0x00, 0x1E, 0x90, 0x00]
+                msg = stcan.StCanMsg(id = i, data = d, extended = m.extended)
+                self.write(msg)
+            elif ask == 31:
+                # sw version
+                i = (stcan.GROUP_CFG << 27) | (m.addr() << 3) | stcan.TYPE_IN
+                d = [0x00, 0x1F, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00]
+                msg = stcan.StCanMsg(id = i, data = d, extended = m.extended)
+                self.write(msg)
+
     def message_handler(self, m):
         if self.exception:
             raise self.exception
-        self.dump_msg(m)
+        self.log(m)
+        if not m.sent:
+            if m.extended and (m.addr() <= self.id):
+                if m.type() == stcan.TYPE_OUT:
+                    if m.group() == stcan.GROUP_CFG:
+                        self.handle_config(m)
 
     def exit_handler(self):
         self.run_thread = False
-
-    def dump_msg(self, m):
-        fmt = '%8.3f %s %d:%s\n'
-        s = fmt % (m.time, m.stcan(), m.dlc(), m.data_str())
-        if m.sent:
-            self.send_cnt += 1
-            sys.stdout.write('W ' + s)
-        else:
-            self.recv_cnt += 1
-            sys.stdout.write('R ' + s)
-
-    def debug(self, str):
-        sys.stdout.write(str)
-        sys.stdout.flush()
 
 if __name__ == '__main__':
     silent = False
@@ -113,7 +113,8 @@ if __name__ == '__main__':
 
     c = BICAN(channel, silent=silent)
     try:
-        c.open()
-        kvaser.main(c)
+        import interface
+        i = interface.Interface(c)
+        i.run()
     finally:
         c.exit_handler()

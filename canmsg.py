@@ -72,7 +72,7 @@ class CanMsg(object):
             self.extended = data.extended
         else:
             self.id = id
-            self._data = data
+            self.data = data
             self.extended = extended
         self.time = time
         self.channel = channel
@@ -92,18 +92,6 @@ class CanMsg(object):
 
     def __str__(self):
         return self.__mfmt.format(self)
-
-    def __repr__(self):
-        m = self.__module__
-        n = self.__class__.__name__
-        f = [self.flags & (1 << x) for x in range(16)]
-        f = [flags_inv[x] for x in f if flags_inv.has_key(x)]
-        if f:
-            f = ' | '.join(['%s.%s' % (m, x) for x in f])
-        else:
-            f = '0'
-        vals = (m, n, self.id, str(self._data), f, self.time)
-        return '%s.%s(id=%d, data=[%s], flags=%s, time=%d)' % vals
 
     def __eq__(self, other):
         if not other:

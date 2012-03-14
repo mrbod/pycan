@@ -3,7 +3,7 @@ import sys
 import os
 import time
 import canchannel
-import canmsg
+import stcan
 import optparse
 import udpclient
 import threading
@@ -87,17 +87,18 @@ class App(object):
         
     def run(self):
         while self._run:
-            time.sleep(0.0)
+            time.sleep(0.5)
             self._lock.acquire()
             try:
                 try:
-                    for i in range(20):
-                        node = random.choice(self._xnodes)
-                        if node.data[0] != 0:
-                            node.data[0] = 1
-                        else:
-                            node.data[0] = 0
-                        self.channel.write(node)
+                    if False:
+                        for i in range(20):
+                            node = random.choice(self._xnodes)
+                            if node.data[0] != 0:
+                                node.data[0] = 1
+                            else:
+                                node.data[0] = 0
+                            self.channel.write(node)
                 except:
                     pass
             finally:
@@ -106,7 +107,7 @@ class App(object):
 class UDPCanChannel(canchannel.CanChannel):
     def __init__(self, ip='localhost', port=2000):
         self.app = App(self)
-        canchannel.CanChannel.__init__(self)
+        canchannel.CanChannel.__init__(self, msg_class=stcan.StCanMsg)
         self.dle_handler = dle.DLEHandler(UDPPort((ip, port)))
         self.outqueue = []
         self.managed = set()
@@ -124,6 +125,7 @@ class UDPCanChannel(canchannel.CanChannel):
         self.count_out = 0
         self.count_in = 0
         self.errcnt = 0
+        self.gw_open = True
         self.thread.start()
 
     def checksum(self, data):
@@ -143,7 +145,7 @@ class UDPCanChannel(canchannel.CanChannel):
         #if self.errcnt >= 10:
             #self.errcnt = 0
             #self.count_out += 1
-            #self.log('error induced')
+            #self.info(2, 'error induced')
         self.count_out = (self.count_out + 1) & 0xFFFF
 
 
@@ -152,18 +154,18 @@ class UDPCanChannel(canchannel.CanChannel):
             self.first_idle = False
             d = [0, 0, 30*4, 0]
             self.send_frame(0x01, d)
-            self.log('idle set')
         elif self.last_idle:
             self.last_idle = False
             self.send_idle = False
             d = [0, 0, 0, 0]
             self.send_frame(0x01, d)
-            self.log('idle stop')
         else:
-            m = canmsg.CanMsg()
-            m.id = (canmsg.GROUP_POUT << 27) | (BUID << 3) | canmsg.TYPE_OUT
-            m.flags = canmsg.canMSG_EXT
-            m.data = [0x01]
+            m = stcan.StCanMsg(extended = True)
+            m.id = (stcan.GROUP_POUT << 27) | (BUID << 3) | stcan.TYPE_OUT
+            if self.gw_open:
+                m.data = [0x01]
+            else:
+                m.data = [0x00]
             self.write(m)
 
     def run(self):
@@ -189,7 +191,7 @@ class UDPCanChannel(canchannel.CanChannel):
         canchannel.CanChannel.exit_handler(self)
 
     def frame2can(self, frame):
-        m = canmsg.CanMsg()
+        m = stcan.StCanMsg()
         count = (frame[1] << 8) | frame[2]
         if count != self.count_in:
             f = [0, 0x01, # dle err type
@@ -199,14 +201,14 @@ class UDPCanChannel(canchannel.CanChannel):
                  count & 0xff]
             self.send_frame(0x02, f)
             s =  'DROPPED FRAME: got {0}, expected {1}'
-            self.log(s.format(count, self.count_in))
+            self.info(4, s.format(count, self.count_in))
         self.count_in = (count + 1) & 0xFFFF
         if frame[0] == 0xFF:
-            m.flags = canmsg.canMSG_STD
+            m.extended = False
             m.id = (frame[3] << 8) | frame[4]
             m.data = frame[5:-1]
         elif frame[0] == 0xFE:
-            m.flags = canmsg.canMSG_EXT
+            m.extended = True
             m.id = (frame[3] << 24) | (frame[4] << 16) | (frame[5] << 8) | frame[6]
             m.data = frame[7:-1]
         elif frame[0] == 0x02:
@@ -215,9 +217,9 @@ class UDPCanChannel(canchannel.CanChannel):
                 exp = (frame[5] << 8) | frame[6]
                 rec = (frame[7] << 8) | frame[8]
                 s = 'GW DROPPED FRAMES: expected {0}, got {1}'
-                self.log(s.format(exp, rec))
+                self.info(4, s.format(exp, rec))
             else:
-                self.log('Unknown dle error: {0}'.format(err_type))
+                self.info(4, 'Unknown dle error: {0}'.format(err_type))
         else:
             return None
         return m
@@ -235,11 +237,11 @@ class UDPCanChannel(canchannel.CanChannel):
             return None
 
         except Exception, e:
-            self.log('do_read: %s' % str(e))
+            self.info(2, 'do_read: %s' % str(e))
             raise
 
     def do_write(self, msg):
-        if msg.flags & canmsg.canMSG_EXT:
+        if msg.extended:
             frame_type = 0xFE
             head = [(msg.id >> 24) & 0xFF, (msg.id >> 16) & 0xFF, (msg.id >> 8) & 0xFF, msg.id & 0xFF]
         else:
@@ -262,7 +264,9 @@ def parse_args():
     return UDPOptions().parse_args()
 
 def main(channel):
-    canchannel.main(channel)
+    import interface
+    i = interface.Interface(channel)
+    i.run()
 
 if __name__ == '__main__':
     try:
@@ -270,69 +274,57 @@ if __name__ == '__main__':
         BUID = opts.buid
 
         class UCC(UDPCanChannel):
-            def dump_msg(self, m):
-                fmt = '%8.3f %08X %08X %d:%s'
-                s = fmt % (m.time, m.id, m.addr(), m.dlc(), m.data_str())
-                if m.sent:
-                    self.log('W ' + s)
-                else:
-                    self.log('R ' + s) 
-
             def ask_type(self, buid):
-                self.log('ask_type')
+                self.info(2, 'ask_type')
                 self.type_asked.add(buid)
-                i = (canmsg.GROUP_CFG << 27) | (buid << 3) | canmsg.TYPE_OUT
-                msg = canmsg.CanMsg(id = i)
-                msg.flags = canmsg.canMSG_EXT
+                i = (stcan.GROUP_CFG << 27) | (buid << 3) | stcan.TYPE_OUT
+                msg = stcan.StCanMsg(id = i, extended = True)
                 msg.data = [0, 0x63, 0, 0x1E]
                 self.outqueue.append(msg)
 
             def ask_version(self, buid):
-                self.log('ask_version')
+                self.info(2, 'ask_version')
                 self.version_asked.add(buid)
-                i = (canmsg.GROUP_CFG << 27) | (buid << 3) | canmsg.TYPE_OUT
-                msg = canmsg.CanMsg(id = i)
-                msg.flags = canmsg.canMSG_EXT
+                i = (stcan.GROUP_CFG << 27) | (buid << 3) | stcan.TYPE_OUT
+                msg = stcan.StCanMsg(id = i, extended = True)
                 msg.data = [0, 0x63, 0, 0x1F]
                 self.outqueue.append(msg)
 
             def manage(self, id):
-                self.log('manage')
+                self.info(2, 'manage')
                 self.managed.add(id)
-                i = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                msg = canmsg.CanMsg(id = i)
-                msg.flags = canmsg.canMSG_EXT
+                i = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                msg = stcan.StCanMsg(id = i, extended = True)
                 msg.data = [0x00, 84,
                             (id >> 24) & 0xFF, (id >> 16) & 0xFF,
                             (id >> 8) & 0xFF, id & 0xFF,
-                            2, 58]
+                            0x02, 0x58]
                 self.outqueue.append(msg)
 
             def add_app(self, buid):
-                self.log('add_app')
-                i = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                msg = canmsg.CanMsg(id = i)
-                msg.flags = canmsg.canMSG_EXT
-                id = (canmsg.GROUP_POUT << 27) | (buid << 3) | canmsg.TYPE_OUT
+                self.info(2, 'add_app')
+                i = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                msg = stcan.StCanMsg(id = i, extended = True)
+                id = (stcan.GROUP_POUT << 27) | (buid << 3) | stcan.TYPE_OUT
                 msg.data = [0x00, 85,
                             (id >> 24) & 0xFF, (id >> 16) & 0xFF,
                             (id >> 8) & 0xFF, id & 0xFF,
                             0x01, 0x90]
                 self.outqueue.append(msg)
-                msg = canmsg.CanMsg(id = id)
-                msg.flags = canmsg.canMSG_EXT
+                msg = stcan.StCanMsg(id = id, extended = True)
                 msg.data = [0x00, 0x00]
                 self.app.add(msg)
 
             def message_handler(self, m):
-                self.dump_msg(m)
+                self.log(m)
                 if m.sent:
                     pass
                 else:
                     buid = m.addr()
                     g = m.group()
+                    self.info(5, 'buid: %08X, group: %s' % (buid, m.sgroup()))
                     if buid == BUID:
-                        if (g == canmsg.GROUP_SEC) and (m.data[1] == 41):
+                        if (g == stcan.GROUP_SEC) and (m.data[1] == 41):
                             id = (m.data[2] << 24) | (m.data[3] << 16) | (m.data[4] << 8) | m.data[5]
                             self.managed.discard(id)
                             addr = id2buid(id)
@@ -343,7 +335,7 @@ if __name__ == '__main__':
                         if m.id in self.managed:
                             pass
                         else:
-                            if g == canmsg.GROUP_PIN:
+                            if g == stcan.GROUP_PIN:
                                 if buid not in self.type_received:
                                     if buid not in self.type_asked:
                                         self.ask_type(buid)
@@ -355,7 +347,7 @@ if __name__ == '__main__':
                                     self.type_asked.discard(buid)
                                     self.manage(m.id)
                                     self.add_app(buid)
-                            elif g == canmsg.GROUP_CFG:
+                            elif g == stcan.GROUP_CFG:
                                 cmd = m.get_word(0)
                                 if cmd == 0x1E:
                                     self.type_received.add(buid)
@@ -373,22 +365,18 @@ if __name__ == '__main__':
                     else:
                         self.last_idle = True
                     return
-                m = canmsg.CanMsg()
-                m.flags = canmsg.canMSG_EXT
                 if c == 'o':
-                    m.id = (canmsg.GROUP_POUT << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.data = [0x01]
-                elif c == 'O':
-                    m.id = (canmsg.GROUP_POUT << 27) | (BUID << 3) | canmsg.TYPE_OUT
-                    m.data = [0x00]
-                elif c == 'r':
-                    m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                    self.gw_open = not self.gw_open
+                    return
+                m = stcan.StCanMsg(extended = True)
+                if c == 'r':
+                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 86, 0, 1]
                 elif c in 'u':
-                    m.id = (canmsg.GROUP_SEC << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                    m.id = (stcan.GROUP_SEC << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0x00, 40, 0x0C, 0x00, 0x00, 0x01]
                 elif c in 'mM1!2"3#':
-                    m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     if c == 'm':
                         m.data = [0x00, 84, 0x0C, 0x00, 0x00, 0x01, 3, 0]
                     elif c == 'M':
@@ -406,24 +394,24 @@ if __name__ == '__main__':
                     elif c == '#':
                         m.data = [0x00, 84, 0x0C, 0x00, 0x00, 0x59, 0, 0]
                 elif c in 'rR':
-                    m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     if c == 'r':
                         m.data = [0x00, 85, 0, 0, 0, 7, 1, 0]
                     else:
                         m.data = [0x00, 85, 0, 0, 0, 7, 0, 0]
                 elif c == 'v':
-                    m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 99, 0, 30]
                 elif c == 'V':
-                    m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 99, 0, 31]
                 elif c == 's':
                     m.data = [0, 99, 0, 92]
                 elif c == 't':
-                    m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 87, 0, 0, 0x05, 0xDC]
                 elif c == 'a':
-                    m.id = (canmsg.GROUP_CFG << 27) | (BUID << 3) | canmsg.TYPE_OUT
+                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 99, 0, 93]
                 else:
                     try:

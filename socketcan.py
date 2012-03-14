@@ -6,6 +6,9 @@ import fcntl
 import array
 import canmsg
 import canchannel
+import time
+
+SC_EXT_BIT = 0x80000000
 
 class SocketCanChannel(canchannel.CanChannel):
     def __init__(self, channel=0, bitrate=None, silent=False, msg_class=canmsg.CanMsg):
@@ -45,29 +48,42 @@ class SocketCanChannel(canchannel.CanChannel):
 
     def unpack(self, frame):
         mid, mdlca, mdata = struct.unpack("I4s8s", frame)
+        ext = mid & SC_EXT_BIT != 0
+        mid = mid & 0x1FFFFFFF
         mdlc = ord(mdlca[0])
         data=[ord(x) for x in mdata[:mdlc]]
-        return self.msg_class(id=mid, data=data, time=self.gettime())
+        return self.msg_class(id=mid, data=data, time=self.gettime(), extended=ext)
 
     def pack(self, m):
-        dlc = m.dlc()
+        dlc = m.dlc
         dlca = chr(dlc) + "\0\0\0"
         data = ''.join([chr(c) for c in m.data]) + chr(0) * (8 - dlc)
-        x = struct.pack("i4s8s", m.id, dlca, data)
+        mid = m.id
+        if m.extended:
+            mid |= SC_EXT_BIT
+        x = struct.pack("L4s8s", mid, dlca, data)
         return x
 
     def do_read(self):
         if self.poll.poll(100):
             cf, addr = self.socket.recvfrom(16)
             m = self.unpack(cf)
-            m.time = self.gettime()
             return m
         return None
 
     def do_write(self, m):
         d = self.pack(m)
-        self.socket.send(d)
-        m.time = self.gettime()
+        while True:
+            try:
+                self.socket.send(d)
+                m.time = self.gettime()
+                return
+            except socket.error, e:
+                if e.errno == 105:
+                    # out buffer full
+                    time.sleep(0.001)
+                    continue
+                raise
 
 if __name__ == '__main__':
     import interface
