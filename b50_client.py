@@ -91,14 +91,13 @@ class App(object):
             self._lock.acquire()
             try:
                 try:
-                    if False:
-                        for i in range(20):
-                            node = random.choice(self._xnodes)
-                            if node.data[0] != 0:
-                                node.data[0] = 1
-                            else:
-                                node.data[0] = 0
-                            self.channel.write(node)
+                    for i in range(20):
+                        node = random.choice(self._xnodes)
+                        if node.data[0] == 0:
+                            node.data[0] = 1
+                        else:
+                            node.data[0] = 0
+                        self.channel.write(node)
                 except:
                     pass
             finally:
