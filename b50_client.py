@@ -61,6 +61,7 @@ class App(object):
         self._run = True
         self._lock = threading.Lock()
         self._nodes = {}
+        self._xnodes = self._nodes.values()
         self.thread.start()
 
     def stop(self):
@@ -89,9 +90,12 @@ class App(object):
         while self._run:
             time.sleep(0.5)
             self._lock.acquire()
+            cnt = len(self._xnodes)
+            if cnt > 20:
+                cnt = 20
             try:
                 try:
-                    for i in range(20):
+                    for i in range(cnt):
                         node = random.choice(self._xnodes)
                         if node.data[0] == 0:
                             node.data[0] = 1
