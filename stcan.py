@@ -4,6 +4,7 @@ import sys
 import socketcan
 import threading
 import time
+import re
 
 STCAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
 STCAN_TYPE = ('OUT', 'IN', 'UD2', 'UD3', 'UD4', 'MON', 'UD6', 'UD7')
@@ -68,41 +69,49 @@ flag_texts = {
         }
 
 class StCanMsg(canmsg.CanMsg):
-    _mfmt = '%08X %s %9.3f %d:%-32s'
+    _mfmt = '{0.sid} {0.stcan:s} {0.time:9.3f} {0.dlc}: {0.data:s}'
 
+    @property
     def addr(self):
         if self.extended:
             return (self.id >> 3) & 0x00FFFFFF
         else:
             return (self.id >> 3) & 0x3f
 
+    @property
+    def saddr(self):
+        if self.extended:
+            return '{0.addr:06X}'.format(self)
+        return '{0.addr:02X}'.format(self)
+
+    @property
     def group(self):
         if self.extended:
             return (self.id >> 27) & 0x3
         else:
             return (self.id >> 9) & 0x3
 
+    @property
     def sgroup(self):
         try:
-            return STCAN_GROUP[self.group()]
+            return STCAN_GROUP[self.group]
         except:
             return '**'
 
+    @property
     def type(self):
         return self.id & 0x7
 
+    @property
     def stype(self):
         try:
-            return STCAN_TYPE[self.type()]
+            return STCAN_TYPE[self.type]
         except:
             return '**'
 
+    @property
     def stcan(self):
-        if self.extended:
-            fmt = '%4s,%08X,%-3s'
-        else:
-            fmt = '%4s,%02X,%-3s'
-        return fmt % (self.sgroup(), self.addr(), self.stype())
+        return '{0.sgroup:>4s},{0.saddr},{0.stype:<3s}'.format(self)
 
     def get_word(self, index):
         d = self.data
@@ -114,12 +123,6 @@ class StCanMsg(canmsg.CanMsg):
         s = 2 * index
         d[s] = (word >> 8) & 0xFF
         d[s+1] = word & 0xFF
-
-    def __str__(self):
-        dlc = self.dlc
-        m = str(self.data)
-        args = (self.id, self.stcan(), self.time, dlc, m)
-        return self._mfmt % args
 
 class StCanChannel(socketcan.SocketCanChannel):
     def __init__(self, channel=0, primary_size=0, address=0):

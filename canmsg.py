@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import re
+
 canMSG_RTR = 0x0001      # Message is a remote request
 canMSG_STD = 0x0002      # Message has a standard ID
 canMSG_EXT = 0x0004      # Message has an extended ID
@@ -63,20 +65,36 @@ class Data(list):
         return ', '.join(t)
 
 class CanMsg(object):
-    __mfmt = '{0.id:8X} {0.time:9.3f} {0.dlc}: {0.data:<32s}'
+    _mfmt = '{0.sid} {0.time:9.3f} {0.dlc}: {0.data:s}'
+    _sre = re.compile(r'(?P<id>[0-9a-fA-F]+)(?P<ext>[ES])?\s+(?:\D\S+\s+)?(?P<time>\d+\.\d+)\s+(?P<dlc>\d):\s*(?P<data>(?:\d\d(?:,\s\d\d)*)?)')
 
     def __init__(self, id=0, data=[], extended=False, time=0.0, channel=None, sent=False):
         if isinstance(data, type(self)):
             self.id = data.id
             self.data = [b for b in data.__data]
             self.extended = data.extended
+            self.time = data.time
         else:
             self.id = id
             self.data = data
             self.extended = extended
-        self.time = time
+            self.time = time
         self.channel = channel
         self.sent = sent
+
+    @property
+    def sid(self):
+        if self._extened:
+            return '{0:08X}'.format(self.id)
+        return '{0:03X}'.format(self.id)
+
+    @property
+    def extended(self):
+        return self._extened
+
+    @extended.setter
+    def extended(self, e):
+        self._extened = e
 
     @property
     def dlc(self):
@@ -90,8 +108,27 @@ class CanMsg(object):
     def data(self, data):
         self._data = Data(data)
 
+    @classmethod
+    def from_str(cls, s, m=None):
+        o = cls._sre.match(s)
+        if o:
+            sid = o.group('id')
+            ID = int(sid, 16)
+            E = len(sid) > 3
+            T = float(o.group('time'))
+            D = [int(x, 16) for x in o.group('data').split(', ')]
+            if m:
+                m.id = ID
+                m.extended = E
+                m.time = T
+                m.data = D
+            else:
+                m = cls(id=ID, extended=E, time=T, data=D)
+            return m
+        return None
+
     def __str__(self):
-        return self.__mfmt.format(self)
+        return self._mfmt.format(self)
 
     def __eq__(self, other):
         if not other:

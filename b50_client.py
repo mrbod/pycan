@@ -57,6 +57,7 @@ class UDPPort(object):
 class App(object):
     def __init__(self, channel):
         self.channel = channel
+        self.cnt = 0
         self.thread = threading.Thread(target=self.run)
         self._run = True
         self._lock = threading.Lock()
@@ -70,8 +71,9 @@ class App(object):
     def add(self, node):
         self._lock.acquire()
         try:
-            self._nodes[node.addr()] = node
+            self._nodes[node.addr] = node
             self._xnodes = self._nodes.values()
+            self.cnt = len(self._xnodes)
         finally:
             self._lock.release()
 
@@ -81,6 +83,7 @@ class App(object):
             try:
                 del self._nodes[buid]
                 self._xnodes = self._nodes.values()
+                self.cnt = len(self._xnodes)
             except:
                 pass
         finally:
@@ -90,7 +93,7 @@ class App(object):
         while self._run:
             time.sleep(0.5)
             self._lock.acquire()
-            cnt = len(self._xnodes)
+            cnt = self.cnt
             if cnt > 20:
                 cnt = 20
             try:
@@ -130,6 +133,10 @@ class UDPCanChannel(canchannel.CanChannel):
         self.errcnt = 0
         self.gw_open = True
         self.thread.start()
+
+    @property
+    def nodecnt(self):
+        return self.app.cnt
 
     def checksum(self, data):
         s = sum(data) & 0xFF
@@ -174,7 +181,11 @@ class UDPCanChannel(canchannel.CanChannel):
     def run(self):
         T0 = self.gettime()
         try:
+            nodecnt = self.nodecnt
             while self.run_thread:
+                if nodecnt != self.nodecnt:
+                    nodecnt = self.nodecnt
+                    self.info(2, 'Serving {0} nodes    '.format(nodecnt))
                 while len(self.outqueue) > 0:
                     self.write(self.outqueue[0])
                     del(self.outqueue[0])
@@ -194,7 +205,6 @@ class UDPCanChannel(canchannel.CanChannel):
         canchannel.CanChannel.exit_handler(self)
 
     def frame2can(self, frame):
-        m = stcan.StCanMsg()
         count = (frame[1] << 8) | frame[2]
         if count != self.count_in:
             f = [0, 0x01, # dle err type
@@ -207,25 +217,25 @@ class UDPCanChannel(canchannel.CanChannel):
             self.info(4, s.format(count, self.count_in))
         self.count_in = (count + 1) & 0xFFFF
         if frame[0] == 0xFF:
-            m.extended = False
-            m.id = (frame[3] << 8) | frame[4]
-            m.data = frame[5:-1]
+            E = False
+            ID = (frame[3] << 8) | frame[4]
+            D = frame[5:-1]
+            return stcan.StCanMsg(id=ID, extended=E, data=D)
         elif frame[0] == 0xFE:
-            m.extended = True
-            m.id = (frame[3] << 24) | (frame[4] << 16) | (frame[5] << 8) | frame[6]
-            m.data = frame[7:-1]
+            E = True
+            ID = (frame[3] << 24) | (frame[4] << 16) | (frame[5] << 8) | frame[6]
+            D = frame[7:-1]
+            return stcan.StCanMsg(id=ID, extended=E, data=D)
         elif frame[0] == 0x02:
             err_type = (frame[3] << 8) | frame[4]
             if err_type == 1:
                 exp = (frame[5] << 8) | frame[6]
                 rec = (frame[7] << 8) | frame[8]
                 s = 'GW DROPPED FRAMES: expected {0}, got {1}'
-                self.info(4, s.format(exp, rec))
+                self.info(5, s.format(exp, rec))
             else:
-                self.info(4, 'Unknown dle error: {0}'.format(err_type))
-        else:
-            return None
-        return m
+                self.info(5, 'Unknown dle error: {0}'.format(err_type))
+        return None
 
     def do_read(self):
         try:
@@ -240,7 +250,7 @@ class UDPCanChannel(canchannel.CanChannel):
             return None
 
         except Exception, e:
-            self.info(2, 'do_read: %s' % str(e))
+            self.info(5, 'do_read: %s' % str(e))
             raise
 
     def do_write(self, msg):
@@ -272,13 +282,15 @@ def main(channel):
     i.run()
 
 if __name__ == '__main__':
+    import logrot
+    logger = logrot.logger('b50_client.log')
+
     try:
         opts, args = parse_args()
         BUID = opts.buid
 
         class UCC(UDPCanChannel):
             def ask_type(self, buid):
-                self.info(2, 'ask_type')
                 self.type_asked.add(buid)
                 i = (stcan.GROUP_CFG << 27) | (buid << 3) | stcan.TYPE_OUT
                 msg = stcan.StCanMsg(id = i, extended = True)
@@ -286,7 +298,6 @@ if __name__ == '__main__':
                 self.outqueue.append(msg)
 
             def ask_version(self, buid):
-                self.info(2, 'ask_version')
                 self.version_asked.add(buid)
                 i = (stcan.GROUP_CFG << 27) | (buid << 3) | stcan.TYPE_OUT
                 msg = stcan.StCanMsg(id = i, extended = True)
@@ -294,7 +305,6 @@ if __name__ == '__main__':
                 self.outqueue.append(msg)
 
             def manage(self, id):
-                self.info(2, 'manage')
                 self.managed.add(id)
                 i = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                 msg = stcan.StCanMsg(id = i, extended = True)
@@ -305,7 +315,6 @@ if __name__ == '__main__':
                 self.outqueue.append(msg)
 
             def add_app(self, buid):
-                self.info(2, 'add_app')
                 i = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                 msg = stcan.StCanMsg(id = i, extended = True)
                 id = (stcan.GROUP_POUT << 27) | (buid << 3) | stcan.TYPE_OUT
@@ -320,12 +329,12 @@ if __name__ == '__main__':
 
             def message_handler(self, m):
                 self.log(m)
+                logger.debug(str(m))
                 if m.sent:
                     pass
                 else:
-                    buid = m.addr()
-                    g = m.group()
-                    self.info(5, 'buid: %08X, group: %s' % (buid, m.sgroup()))
+                    buid = m.addr
+                    g = m.group
                     if buid == BUID:
                         if (g == stcan.GROUP_SEC) and (m.data[1] == 41):
                             id = (m.data[2] << 24) | (m.data[3] << 16) | (m.data[4] << 8) | m.data[5]
@@ -334,6 +343,7 @@ if __name__ == '__main__':
                             self.version_received.discard(addr)
                             self.type_received.discard(addr)
                             self.app.remove(addr)
+                            self.info(3, 'GW dropped CAN id {0:08X}'.format(id))
                     else:
                         if m.id in self.managed:
                             pass
