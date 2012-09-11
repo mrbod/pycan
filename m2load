@@ -1,0 +1,26 @@
+#!/usr/bin/env python
+import sys
+import socketcan
+import canmsg
+
+if len(sys.argv) > 1:
+    cnt = int(sys.argv[1])
+else:
+    cnt = 10
+
+ch = socketcan.SocketCanChannel(0)
+
+m = canmsg.CanMsg()
+m.extended = False
+m.data = [1,2,3,4,5,6,7,8]
+m.id = 0x05 << 3
+
+m.data = [0,0,0,0]
+
+for i in range(cnt):
+    m.data[0] = (i >> 28) & 0xFF
+    m.data[1] = (i >> 16) & 0xFF
+    m.data[2] = (i >> 8) & 0xFF
+    m.data[3] = i & 0xFF
+    ch.write(m)
+

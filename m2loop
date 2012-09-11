@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+import sys
+import time
+import socketcan
+import canmsg
+
+check = False
+quiet = False
+
+args = sys.argv[1:]
+argcnt = len(args)
+
+i = 0
+while i < argcnt:
+    a = args[i]
+    if a == '-c':
+        check = True
+    elif a == '-q':
+        quiet = True
+    elif a == '-l':
+        i += 1
+        if i < argcnt:
+            limit = int(args[i])
+            if limit < 0:
+                raise Exception("limit not valid")
+    i += 1
+
+def data2int32(data):
+    r = data[0]
+    r = (r << 8) + data[1]
+    r = (r << 8) + data[2]
+    r = (r << 8) + data[3]
+    return r
+
+cnt = 0
+T0 = time.time()
+msglist = []
+ignore = (0x4f0, 0x0f0, 0x000)
+
+try:
+    ch = socketcan.SocketCanChannel(0)
+    cc = 0
+    dropped = 0
+    while True:
+        m = ch.read()
+        if m and ((m.id & 0x1F8) not in ignore):
+            if cnt == 0:
+                T0 = time.time()
+                time.sleep(0.2)
+                if check:
+                    cc = data2int32(m.data)
+            elif check:
+                tmp = data2int32(m.data)
+                if tmp != cc + 1:
+                    if tmp <= cc:
+                        print 'restarting check dropped {0}'.format(dropped)
+                        dropped = 0
+                    else:
+                        dropped += tmp - cc - 1
+                cc = tmp
+            cnt += 1
+            ch.write(m)
+            if not quiet:
+                print m
+
+except KeyboardInterrupt:
+    pass
+finally:
+    if check:
+        print 'dropped {0}'.format(dropped)
+    else:
+        print 'Looped {0} messages'.format(cnt) 
+

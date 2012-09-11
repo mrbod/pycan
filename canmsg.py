@@ -108,6 +108,12 @@ class CanMsg(object):
     def data(self, data):
         self._data = Data(data)
 
+    @property
+    def ssent(self):
+        if self.sent:
+            return 'W'
+        return 'R'
+
     @classmethod
     def from_str(cls, s, m=None):
         o = cls._sre.match(s)

@@ -25,6 +25,9 @@ class SocketCanChannel(canchannel.CanChannel):
         # enable/disable loopback
         loopback = 0
         self.socket.setsockopt(socket.SOL_CAN_RAW, socket.CAN_RAW_LOOPBACK, struct.pack("I", loopback))
+        # change rx buffer size
+        #bufsize = 1
+        #self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, struct.pack("I", bufsize))
         # bind to interface "canX" or "any")
         # tuple is (interface, reserved(can_addr))
         cani = 'can{0}'.format(channel)

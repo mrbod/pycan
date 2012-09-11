@@ -18,6 +18,7 @@ canBITRATE_62K = -6
 canBITRATE_50K = -7
 canBITRATE_83K = -8
 canBITRATE_10K = -9
+
 bitrates = {
         canBITRATE_1M: '1M',
         canBITRATE_500K: '500K',

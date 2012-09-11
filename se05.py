@@ -1,57 +1,53 @@
 #!/bin/env python
+import socketcan
+import interface
 import canmsg
-import sys
+import stcan
 import time
-import threading
-import kvaser
 
-class SE05(kvaser.KvaserCanChannel):
-    def __init__(self, channel=0, silent=False):
-        self.old_recv = canmsg.CanMsg()
-        self.old_cnt = 0
-        self.thread = threading.Thread(target=self.run)
-        self.run_thread = True
-        self.exception = None
-        self.load_msg = canmsg.CanMsg(id=1)
-        self.load = False
-        self.load_cnt = 0
-        self.thread.start()
-        kvaser.KvaserCanChannel.__init__(self, silent=silent, channel=channel, bitrate=kvaser.canBITRATE_125K)
+class Msg(canmsg.CanMsg):
+    _mfmt = '{0.ssent} {0.sid} {0.time:9.3f} {0.dlc}: {0.data:s}'
+    def __str__(self):
+        return self._mfmt.format(self)
 
-    def run(self):
-        try:
-            while self.run_thread:
-                if self.load:
-                    d = [(self.load_cnt >> 8) & 0xFF, self.load_cnt & 0xFF]
-                    self.load_msg.data = d
-                    self.write(self.load_msg)
-                    self.load_cnt += 1
-                    time.sleep(0.001)
-        except Exception, e:
-            self.exception = e
-            raise
+class Channel(socketcan.SocketCanChannel):
+    def __init__(self, channel):
+        super(Channel, self).__init__(channel, msg_class=Msg)
+        self.index = -1
+        self.limit = False
 
     def action_handler(self, c):
-        self.load = not self.load
+        if c == 'l':
+            self.limit = not self.limit
+        elif c == 'p':
+            m = Msg()
+            m.id = 77
+            m.data = [4,3,2,1,1,2,3,4]
+            self.write(m)
+        elif c == 'P':
+            for i in xrange(10):
+                m = Msg()
+                m.id = 77
+                m.data = [i,1,1,1,1,1,1,1]
+                self.write(m)
+                time.sleep(0.001)
+        else:
+            self.info(7, c)
 
     def message_handler(self, m):
-        print m
-
-    def exit_handler(self):
-        self.run_thread = False
-
-    def debug(self, str):
-        sys.stdout.write(str)
-        sys.stdout.flush()
+        if not self.limit:
+            return super(Channel, self).message_handler(m)
+        if (m.dlc == 8):
+            if not m.sent:
+                x = self.index + 1
+                if x != m.data[0]:
+                    self.info(3, 'missing {0}'.format(x))
+                self.index = m.data[0]
+            return super(Channel, self).message_handler(m)
+        return None
 
 if __name__ == '__main__':
-    silent = False
-    for o in sys.argv[1:]:
-        if o == '-s':
-            silent = True
-    c = SE05(0, silent=silent)
-    try:
-        c.open()
-        kvaser.main(c)
-    finally:
-        c.exit_handler()
+    channel = Channel(0)
+    interface = interface.Interface(channel)
+    interface.run()
+

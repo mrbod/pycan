@@ -215,8 +215,10 @@ class StCanChannel(socketcan.SocketCanChannel):
                 self.primary_answer = not self.primary_answer
             elif c == 'i':
                 self.state = 'INDEX'
+                self.index = 0
             elif c == 'v':
                 self.state = 'VALUE'
+                self.value = 0
             elif c == 't':
                 self.toggle(self.index)
         elif (c == chr(0x0A)) or (c == chr(0x0D)): # LF or CR
@@ -231,7 +233,7 @@ class StCanChannel(socketcan.SocketCanChannel):
     def message_handler(self, m):
         if self.exception:
             raise self.exception
-        if (m.group() == 0x01) and (m.type() == 1):
+        if (m.group == 0x01) and (m.type == 1):
             self.send_primary = self.primary_answer
         super(StCanChannel, self).message_handler(m)
 
@@ -242,12 +244,12 @@ class StCanChannel(socketcan.SocketCanChannel):
         sys.stdout.write(str)
         sys.stdout.flush()
 
-def main(channel, primary_size, address):
+def main(channel, primary_size, address, cls=StCanChannel):
     import interface
-    c = StCanChannel(channel, primary_size=primary_size, address=address)
+    c = cls(channel, primary_size=primary_size, address=address)
     i = interface.Interface(c)
     i.run()
 
 if __name__ == '__main__':
-    main(0, 1, 1)
+    main(0, 1, 4)
 

@@ -156,7 +156,7 @@ class Interface(object):
         self.line = -1
         self.scrolling = False
         self.static = static
-        self.mycmd = {'q':'QUIT', 'p':'SAVE', 's':'STATIC_TOGGLE', '[7~': 'KEY_HOME', '[8~':'KEY_END', '[3^':'CLEAR'}
+        self.mycmd = {'q':'QUIT', 'p':'SAVE', 's':'STATIC_TOGGLE', '[7~': 'KEY_HOME', '[8~':'KEY_END', '[3;3~':'KEY_DC'}
 
     def run(self):
         try:
@@ -180,7 +180,7 @@ class Interface(object):
                         x = self.getkey()
                     c = self.mycmd.get(txt, '')
                     if c == '':
-                        #self.logger.info(6, '{0:<40}'.format(list(txt)))
+                        self.logger.info(6, '{0:<40}'.format(list(txt)))
                         pass
                 if c == 'QUIT':
                     return True
@@ -208,7 +208,7 @@ class Interface(object):
                     self.scrolling = False
                     self.line = -1
                     self.update()
-                elif c == 'CLEAR': #curses.KEY_CDEL
+                elif c == 'KEY_DC': #curses.KEY_CDEL
                     self.logger.clear()
                     self.statistics = Statistics(self.time())
                     self.channel.read_cnt = 0
