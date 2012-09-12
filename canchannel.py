@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import sys
 import time
 import canmsg
 import threading
@@ -65,7 +66,10 @@ class CanChannel(object):
             self.logger.info(row, x)
 
     def log(self, x):
-        if self.logger != None:
+        if self.logger == None:
+            sys.stdout.write(str(x))
+            sys.stdout.write('\n')
+        else:
             self.logger.log(x)
 
     def action_handler(self, key):
@@ -77,9 +81,18 @@ class CanChannel(object):
     def exit_handler(self):
         pass
 
-if __name__ == '__main__':
-    import interface
+def main():
+    sys.stdout.write('This is the base CAN channel class\n')
+    sys.stdout.write('Only emulated CAN message input is provided.\n')
     ch = CanChannel()
-    interface = interface.Interface(ch)
-    interface.run()
+    while True:
+        m = ch.read()
+        if not m:
+            time.sleep(0.1)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
 

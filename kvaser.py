@@ -167,7 +167,7 @@ class KvaserOptions(optparse.OptionParser):
 def parse_args():
     return KvaserOptions().parse_args()
 
-if __name__ == '__main__':
+def main():
     opts, args = parse_args()
 
     # Example Kvaser subclass.
@@ -204,4 +204,10 @@ if __name__ == '__main__':
     cc = KCC(channel=opts.channel, bitrate=opts.bitrate, silent=opts.silent)
     interface = interface.Interface(cc)
     interface.run()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
 
