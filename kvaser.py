@@ -6,8 +6,61 @@ import ctypes.util
 import time
 import canchannel
 import canmsg
+import stcan
 import optparse
 import interface
+
+canMSG_RTR = 0x0001      # Message is a remote request
+canMSG_STD = 0x0002      # Message has a standard ID
+canMSG_EXT = 0x0004      # Message has an extended ID
+canMSG_WAKEUP = 0x0008      # Message to be sent / was received in wakeup mode
+canMSG_NERR = 0x0010      # NERR was active during the message
+canMSG_ERROR_FRAME = 0x0020      # Message is an error frame
+canMSG_TXACK = 0x0040      # Message is a TX ACK (msg is really sent)
+canMSG_TXRQ = 0x0080      # Message is a TX REQUEST (msg is transfered to the chip)
+canMSGERR_HW_OVERRUN = 0x0200      # HW buffer overrun
+canMSGERR_SW_OVERRUN = 0x0400      # SW buffer overrun
+canMSGERR_STUFF = 0x0800      # Stuff error
+canMSGERR_FORM = 0x1000      # Form error
+canMSGERR_CRC = 0x2000      # CRC error
+canMSGERR_BIT0 = 0x4000      # Sent dom, read rec
+canMSGERR_BIT1 = 0x8000      # Sent rec, read dom
+
+flags_inv = {
+        0x0001: 'canMSG_RTR',
+        0x0002: 'canMSG_STD',
+        0x0004: 'canMSG_EXT',
+        0x0008: 'canMSG_WAKEUP',
+        0x0010: 'canMSG_NERR',
+        0x0020: 'canMSG_ERROR_FRAME',
+        0x0040: 'canMSG_TXACK',
+        0x0080: 'canMSG_TXRQ',
+        0x0200: 'canMSGERR_HW_OVERRUN',
+        0x0400: 'canMSGERR_SW_OVERRUN',
+        0x0800: 'canMSGERR_STUFF',
+        0x1000: 'canMSGERR_FORM',
+        0x2000: 'canMSGERR_CRC',
+        0x4000: 'canMSGERR_BIT0',
+        0x8000: 'canMSGERR_BIT1',
+        }
+
+flag_texts = {
+        canMSG_RTR: 'RTR',
+        canMSG_STD: 'STD',
+        canMSG_EXT: 'EXT',
+        canMSG_WAKEUP: 'WAKEUP',
+        canMSG_NERR: 'NERR',
+        canMSG_ERROR_FRAME: 'ERROR_FRAME',
+        canMSG_TXACK: 'TXACK',
+        canMSG_TXRQ: 'TXRQ',
+        canMSGERR_HW_OVERRUN: 'HW_OVERRUN',
+        canMSGERR_SW_OVERRUN: 'SW_OVERRUN',
+        canMSGERR_STUFF: 'STUFF',
+        canMSGERR_FORM: 'FORM',
+        canMSGERR_CRC: 'CRC',
+        canMSGERR_BIT0: 'BIT0',
+        canMSGERR_BIT1: 'BIT1',
+        }
 
 canBITRATE_1M = -1
 canBITRATE_500K = -2
@@ -51,7 +104,7 @@ canOK = 0
 canERR_NOMSG = -2
 
 class KvaserCanChannel(canchannel.CanChannel):
-    def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
+    def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False, msg_class=canmsg.CanMsg):
         self.canlib32 = None
         if sys.platform == 'linux2':
             self.canlib32 = ctypes.CDLL('libcanlib.so')
@@ -63,7 +116,8 @@ class KvaserCanChannel(canchannel.CanChannel):
             raise Exception('Unknown platform: {0:s}'.format(sys.platform))
         self.canlib32.canInitializeLibrary()
 
-        canchannel.CanChannel.__init__(self)
+        super(KvaserCanChannel, self).__init__(msg_class=msg_class)
+
         self.channel = ctypes.c_int(channel)
         self.bitrate = ctypes.c_int(bitrate)
         self.silent = silent
@@ -113,7 +167,7 @@ class KvaserCanChannel(canchannel.CanChannel):
         if res == canOK:
             T = self.gettime()
             d = [ord(data[i]) for i in range(dlc.value)]
-            m = canmsg.CanMsg(id.value, d, flags.value, T, channel=self)
+            m = self.msg_class(id.value, d, flags.value, T, channel=self)
             return m
         if res != canERR_NOMSG:
             s = ctypes.create_string_buffer(128)
@@ -124,9 +178,13 @@ class KvaserCanChannel(canchannel.CanChannel):
     def do_write(self, msg):
         d = ''.join([chr(x) for x in msg.data])
         cnt = 0
+        if msg.extended:
+            flags = canMSG_EXT
+        else:
+            flags = canMSG_STD
         while True:
             cnt += 1
-            res = self.canlib32.canWrite(self.handle, msg.id, d, len(d), msg.flags)
+            res = self.canlib32.canWrite(self.handle, msg.id, d, len(d), flags)
             if res == 0:
                 break
             elif cnt % 50 == 0:
@@ -174,20 +232,20 @@ def main():
     # Useful as generic logger...
     class KCC(KvaserCanChannel):
         def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
-            super(KCC, self).__init__(channel, bitrate, silent)
+            super(KCC, self).__init__(channel, bitrate, silent, msg_class=stcan.StCanMsg)
 
         def action_handler(self, c):
             if c == 'l':
-                m = canmsg.CanMsg()
-                m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
-                m.flags = canmsg.canMSG_STD
+                m = self.msg_class()
+                m.id = (stcan.GROUP_PIN << 9) | (1 << 3) | stcan.TYPE_IN
+                m.extended = False
                 for i in range(100):
                     m.data = [i >> 8, i & 0xFF]
                     self.write(m)
             elif c == 's':
-                m = canmsg.CanMsg()
-                m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
-                m.flags = canmsg.canMSG_STD
+                m = self.msg_class()
+                m.id = (stcan.GROUP_PIN << 9) | (1 << 3) | stcan.TYPE_IN
+                m.extended = False
                 m.data = [ord(c) for c in 'hejsan']
                 self.write(m)
             else:
@@ -195,9 +253,9 @@ def main():
                     self.i += 1
                 except:
                     self.i = 0
-                m = canmsg.CanMsg()
-                m.id = (canmsg.GROUP_PIN << 27) | (1 << 3) | canmsg.TYPE_IN
-                m.flags = canmsg.canMSG_EXT
+                m = self.msg_class()
+                m.id = (stcan.GROUP_PIN << 27) | (1 << 3) | stcan.TYPE_IN
+                m.extended = False
                 m.data = [self.i & 0xFF]
                 self.write(m)
 
