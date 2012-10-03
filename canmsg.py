@@ -13,8 +13,8 @@ class Data(list):
         return ', '.join(t)
 
 class CanMsg(object):
-    _mfmt = '{0.sid} {0.time:9.3f} {0.dlc}: {0.data:s}'
-    _sre = re.compile(r'(?P<id>[0-9a-fA-F]+)(?P<ext>[ES])?\s+(?:\D\S+\s+)?(?P<time>\d+\.\d+)\s+(?P<dlc>\d):\s*(?P<data>(?:\d\d(?:,\s\d\d)*)?)')
+    _mfmt = '{0.sid:>8} {0.time:9.3f} {0.dlc}: {0.data:s}'
+    _sre = re.compile(r'\s*(?P<id>[0-9a-fA-F]+)?\s+(?P<time>\d+\.\d+)\s+(?P<dlc>\d):\s*(?P<data>(?:[0-9a-fA-F]{2}(?:,\s[0-9a-fA-F]{2})*)?)')
 
     def __init__(self, id=0, data=[], extended=False, time=0.0, channel=None, sent=False):
         if isinstance(data, type(self)):
@@ -42,7 +42,10 @@ class CanMsg(object):
 
     @extended.setter
     def extended(self, e):
-        self._extened = e
+        if e:
+            self._extened = True
+        else:
+            self._extened = False
 
     @property
     def dlc(self):
@@ -66,11 +69,15 @@ class CanMsg(object):
     def from_str(cls, s, m=None):
         o = cls._sre.match(s)
         if o:
-            sid = o.group('id')
+            md = o.groupdict()
+            sid = md['id']
             ID = int(sid, 16)
             E = len(sid) > 3
-            T = float(o.group('time'))
-            D = [int(x, 16) for x in o.group('data').split(', ')]
+            T = float(md['time'])
+            if md['data']:
+                D = [int(x, 16) for x in md['data'].split(', ')]
+            else:
+                D = []
             if m:
                 m.id = ID
                 m.extended = E
@@ -105,4 +112,5 @@ if __name__ == '__main__':
     m = CanMsg()
     print m.__sizeof__()
     print dir(m)
+    print m
 

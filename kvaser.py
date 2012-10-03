@@ -163,11 +163,15 @@ class KvaserCanChannel(canchannel.CanChannel):
         dlc = ctypes.c_int()
         flags = ctypes.c_int()
         time = ctypes.c_int()
-        res = self.canlib32.canReadWait(self.handle, ctypes.byref(id), data, ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(time), -1)
+        res = self.canlib32.canRead(self.handle, ctypes.byref(id), data, ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(time))
         if res == canOK:
             T = self.gettime()
             d = [ord(data[i]) for i in range(dlc.value)]
-            m = self.msg_class(id.value, d, flags.value, T, channel=self)
+            if flags.value & canMSG_EXT != 0:
+                ext = True
+            else:
+                ext = False
+            m = self.msg_class(id=id.value, data=d, extended=ext, time=T, channel=self)
             return m
         if res != canERR_NOMSG:
             s = ctypes.create_string_buffer(128)
@@ -236,10 +240,10 @@ def main():
 
         def action_handler(self, c):
             if c == 'l':
-                m = self.msg_class()
-                m.id = (stcan.GROUP_PIN << 9) | (1 << 3) | stcan.TYPE_IN
-                m.extended = False
                 for i in range(100):
+                    m = self.msg_class()
+                    m.id = (stcan.GROUP_PIN << 9) | (1 << 3) | stcan.TYPE_IN
+                    m.extended = False
                     m.data = [i >> 8, i & 0xFF]
                     self.write(m)
             elif c == 's':
@@ -255,13 +259,13 @@ def main():
                     self.i = 0
                 m = self.msg_class()
                 m.id = (stcan.GROUP_PIN << 27) | (1 << 3) | stcan.TYPE_IN
-                m.extended = False
+                m.extended = True
                 m.data = [self.i & 0xFF]
                 self.write(m)
 
     cc = KCC(channel=opts.channel, bitrate=opts.bitrate, silent=opts.silent)
-    interface = interface.Interface(cc)
-    interface.run()
+    i = interface.Interface(cc)
+    i.run()
 
 if __name__ == '__main__':
     try:

@@ -3,6 +3,7 @@ import sys
 import time
 import canmsg
 import threading
+import random
 
 class CanChannel(object):
     def __init__(self, msg_class=canmsg.CanMsg):
@@ -13,6 +14,7 @@ class CanChannel(object):
         self.read_cnt = 0
         self.write_cnt = 0
         self.msg_class = msg_class
+        self._dT = 0.0
     
     def open(self):
         self.starttime = time.time()
@@ -28,10 +30,18 @@ class CanChannel(object):
 
     def do_read(self):
         T = self.gettime()
-        if T - self.T0 > 2:
+        if T - self.T0 > self._dT:
             self.T0 = T
+            self._dT = 0.5 * random.random()
             m = self.msg_class()
+            if random.randint(0,1) == 0:
+                m.id = random.randint(0, 2**11 - 1)
+            else:
+                m.id = random.randint(0, 2**29 - 1)
+                m.extended = True
             m.time = T
+            dlc = random.randint(0,8)
+            m.data = [random.randint(0, 255) for x in range(dlc)]
             return m
         return None
 
@@ -69,6 +79,7 @@ class CanChannel(object):
         if self.logger == None:
             sys.stdout.write(str(x))
             sys.stdout.write('\n')
+            sys.stdout.flush()
         else:
             self.logger.log(x)
 
@@ -88,7 +99,7 @@ def main():
     while True:
         m = ch.read()
         if not m:
-            time.sleep(0.1)
+            time.sleep(0)
 
 if __name__ == '__main__':
     try:
