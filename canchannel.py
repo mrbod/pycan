@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 import sys
 import time
-import canmsg
 import threading
+import Queue
 import random
+import canmsg
 
 class CanChannel(object):
     def __init__(self, msg_class=canmsg.CanMsg):
@@ -15,12 +16,62 @@ class CanChannel(object):
         self.write_cnt = 0
         self.msg_class = msg_class
         self._dT = 0.0
+        self.wt = threading.Thread(target=self._writer)
+        self.rt = threading.Thread(target=self._reader)
+        self.mt = threading.Thread(target=self._message_handler)
+        self.wt.daemon = True
+        self.rt.daemon = True
+        self.mt.daemon = True
+        self.wq = Queue.Queue()
+        self.rq = Queue.Queue()
+        self.mq = Queue.Queue()
+        self.running = True
+        self.mt.start()
+        self.wt.start()
+        self.rt.start()
     
+    def _writer(self):
+        try:
+            while self.running:
+                try:
+                    m = self.wq.get(True, 0.1)
+                    self.do_write(m)
+                except Queue.Empty:
+                    pass
+        except Exception, e:
+            sys.stderr.write(str(e) + '\n')
+            self.close()
+            sys.exit()
+
+    def _reader(self):
+        try:
+            while self.running:
+                m = self.do_read()
+                if m:
+                    self.rq.put(m)
+        except Exception, e:
+            sys.stderr.write(str(e) + '\n')
+            self.close()
+            sys.exit()
+
+    def _message_handler(self):
+        try:
+            while self.running:
+                try:
+                    m = self.mq.get(True, 0.1)
+                    self.message_handler(m)
+                except Queue.Empty:
+                    pass
+        except Exception, e:
+            sys.stderr.write(str(e) + '\n')
+            self.close()
+            sys.exit()
+
     def open(self):
         self.starttime = time.time()
 
     def close(self):
-        pass
+        self.running = False
 
     def __del__(self):
         self.close()
@@ -30,46 +81,38 @@ class CanChannel(object):
 
     def do_read(self):
         T = self.gettime()
-        if T - self.T0 > self._dT:
-            self.T0 = T
-            self._dT = 0.5 * random.random()
-            m = self.msg_class()
-            if random.randint(0,1) == 0:
-                m.id = random.randint(0, 2**11 - 1)
-            else:
-                m.id = random.randint(0, 2**29 - 1)
-                m.extended = True
-            m.time = T
-            dlc = random.randint(0,8)
-            m.data = [random.randint(0, 255) for x in range(dlc)]
-            return m
-        return None
-
-    def read(self):
-        m = None
-        try:
-            m = self.do_read()
-        finally:
-            pass
-        if m:
-            self.read_cnt += 1
-            m.channel = self
-            self.message_handler(m)
+        time.sleep(self._dT)
+        self._dT = 0.5 * random.random()
+        m = self.msg_class()
+        if random.randint(0,1) == 0:
+            m.id = random.randint(0, 2**11 - 1)
+        else:
+            m.id = random.randint(0, 2**29 - 1)
+            m.extended = True
+        m.time = T
+        dlc = random.randint(0,8)
+        m.data = [random.randint(0, 255) for x in range(dlc)]
         return m
 
-    def do_write(self, msg):
-        msg.time = self.gettime()
+    def do_write(self, m):
+        m.time = self.gettime()
 
-    def write(self, msg):
-        self._write_lock.acquire(True)
+    def read(self):
         try:
-            self.do_write(msg)
-        finally:
-            self._write_lock.release()
+            m = self.rq.get(False)
+        except Queue.Empty:
+            return None
+        self.read_cnt += 1
+        m.channel = self
+        self.mq.put(m)
+        return m
+
+    def write(self, m):
         self.write_cnt += 1
-        msg.channel = self
-        msg.sent = True
-        self.message_handler(msg)
+        m.channel = self
+        m.sent = True
+        self.wq.put(m)
+        self.mq.put(m)
 
     def info(self, row, x):
         if self.logger != None:
@@ -96,10 +139,14 @@ def main():
     sys.stdout.write('This is the base CAN channel class\n')
     sys.stdout.write('Only emulated CAN message input is provided.\n')
     ch = CanChannel()
-    while True:
-        m = ch.read()
-        if not m:
-            time.sleep(0)
+    try:
+        while True:
+            m = ch.read()
+            if not m:
+                time.sleep(0)
+    finally:
+        ch.close()
+        sys.stdout.write('channel closed...\n')
 
 if __name__ == '__main__':
     try:

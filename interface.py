@@ -5,6 +5,8 @@ import threading
 import sys
 import canmsg
 
+INFO_WIN_SIZE = 10
+
 class SlotEntry(object):
     def __init__(self, msg):
         self.msg = msg
@@ -52,7 +54,9 @@ class Logger(object):
         self.update(0)
 
     def info(self, row, txt):
-        self.infowin.addstr(row, 0, txt)
+        if row > INFO_WIN_SIZE - 3:
+            return
+        self.infowin.addstr(row + 3, 0, txt)
         self.infowin.noutrefresh()
 
     def log(self, m):
@@ -156,7 +160,7 @@ class Interface(object):
         self.line = -1
         self.scrolling = False
         self.static = static
-        self.mycmd = {'q':'QUIT', 'p':'SAVE', 's':'STATIC_TOGGLE', '[7~': 'KEY_HOME', '[8~':'KEY_END', '[3;3~':'KEY_DC'}
+        self.mycmd = {'q':'QUIT', 'd':'SAVE', 's':'STATIC_TOGGLE', '[7~': 'KEY_HOME', '[8~':'KEY_END', '[3;3~':'KEY_DC'}
 
     def run(self):
         try:
@@ -251,12 +255,13 @@ class Interface(object):
         self.mainwin = mainwin
         mainwin.nodelay(True)
         self.my, self.mx = mainwin.getmaxyx()
-        infowin = mainwin.subwin(10, self.mx, self.my - 10, 0)
+        infowin = mainwin.subwin(INFO_WIN_SIZE, self.mx, self.my - INFO_WIN_SIZE, 0)
         self.infowin = infowin
         infowin.hline('-', self.mx)
         infowin.addstr(0, self.mx / 2 - 4, 'Info here')
+        infowin.addstr(2, 0, '[Alt-q]-quit, [Alt-s]-static view, [Alt-d]-dump to file \'dump\'')
         infowin.refresh()
-        logwin = mainwin.subwin(self.my - 10, self.mx, 0, 0)
+        logwin = mainwin.subwin(self.my - INFO_WIN_SIZE, self.mx, 0, 0)
         self.logwin = logwin
         logwin.scrollok(True)
         mainwin.keypad(True)
@@ -265,6 +270,7 @@ class Interface(object):
         infowin.leaveok(0)
         self.logger = Logger(logwin, infowin, self.static)
         self.channel.logger = self.logger
+        self.channel.action_handler('INIT')
         try:
             logwin.nodelay(True)
             T0 = self.time()
@@ -285,7 +291,7 @@ class Interface(object):
                     R = c.read_cnt
                     W = c.write_cnt
                     self.statistics.update(T, R, W)
-                    self.logger.info(1, str(self.statistics))
+                    self.logger.info(-2, str(self.statistics))
                     self.update()
         finally:
             self.channel.exit_handler()
