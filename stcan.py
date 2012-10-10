@@ -14,7 +14,7 @@ TYPE_IN = 1
 TYPE_MON = 5
 
 class StCanMsg(canmsg.CanMsg):
-    _mfmt = '{0.sid:>8s} {0.stcan:^15s} {0.time:9.3f} {0.dlc}: {0.data:s}'
+    _mfmt = '{0.stcan:<15s} ' + canmsg.CanMsg._mfmt
 
     def __init__(self, **kwargs):
         super(StCanMsg, self).__init__(**kwargs)
@@ -72,7 +72,7 @@ class StCanMsg(canmsg.CanMsg):
 
     @property
     def stcan(self):
-        return '{0.sgroup:>4s},{0.saddr},{0.stype:<3s}'.format(self)
+        return '{0.sgroup:<4s},{0.stype:<3s},{0.saddr}'.format(self)
 
     @property
     def index(self):
