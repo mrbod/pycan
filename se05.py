@@ -12,7 +12,8 @@ class Msg(canmsg.CanMsg):
 
 class Channel(socketcan.SocketCanChannel):
     def __init__(self, channel):
-        super(Channel, self).__init__(channel, msg_class=Msg)
+        super(Channel, self).__init__(channel, msg_class=stcan.StCanMsg)
+        #super(Channel, self).__init__(channel, msg_class=Msg)
         self.index = -1
         self.limit = False
 
