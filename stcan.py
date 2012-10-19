@@ -72,7 +72,7 @@ class StCanMsg(canmsg.CanMsg):
 
     @property
     def stcan(self):
-        return '{0.sgroup:<4s},{0.stype:<3s},{0.saddr}'.format(self)
+        return '{0.sgroup:>4s},{0.stype:>3s},{0.saddr}'.format(self)
 
     @property
     def index(self):
