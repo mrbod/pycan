@@ -9,7 +9,7 @@ class Data(list):
         self.dlc = len(self)
 
     def __str__(self):
-        t = [self.__fmt1.format(d) for d in self]
+        t = (self.__fmt1.format(d) for d in self)
         return ', '.join(t)
 
 class CanMsg(object):
@@ -19,7 +19,7 @@ class CanMsg(object):
     def __init__(self, id=0, data=[], extended=False, time=0.0, channel=None, sent=False):
         if isinstance(data, type(self)):
             self.id = data.id
-            self.data = [b for b in data.__data]
+            self.data = [b for b in data.data]
             self.extended = data.extended
             self.time = data.time
         else:
@@ -64,6 +64,17 @@ class CanMsg(object):
         if self.sent:
             return 'W'
         return 'R'
+
+    def __getattribute__(self, a):
+        if (len(a) == 2) and (a[0] in 'dD') and (a[1] in '01234567'):
+            return self.data[int(a[1])]
+        return super(CanMsg, self).__getattribute__(a)
+
+    def __setattr__(self, a, v):
+        if (len(a) == 2) and (a[0] in 'wW') and (a[1] in '0123'):
+            return self.set_word(int(a[1]), v)
+        return super(CanMsg, self).__setattr__(a, v)
+
 
     @classmethod
     def from_str(cls, s, m=None):
@@ -110,7 +121,8 @@ class CanMsg(object):
 
 if __name__ == '__main__':
     m = CanMsg()
-    print m.__sizeof__()
-    print dir(m)
+    m.data = [1,2,3,4]
     print m
+    print m.d2
+    print m.data[5]
 
