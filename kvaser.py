@@ -115,8 +115,6 @@ class KvaserCanChannel(canchannel.CanChannel):
             raise Exception('Unknown platform: {0:s}'.format(sys.platform))
         self.canlib32.canInitializeLibrary()
 
-        super(KvaserCanChannel, self).__init__(msg_class=msg_class)
-
         self.channel = ctypes.c_int(channel)
         self.bitrate = ctypes.c_int(bitrate)
         self.silent = silent
@@ -148,6 +146,7 @@ class KvaserCanChannel(canchannel.CanChannel):
                 s = ctypes.create_string_buffer(128)
                 self.canlib32.canGetErrorText(res, s, 128)
                 raise Exception('canSetBusOutputControl=%d: %s' % (res, s.value))
+        super(KvaserCanChannel, self).__init__(msg_class=msg_class)
 
     #def gettime(self):
         #return self.canlib32.canReadTimer(self.handle) / 1000.0
@@ -230,37 +229,58 @@ def parse_args():
 
 def main():
     opts, args = parse_args()
+    import threading
 
     # Example Kvaser subclass.
     # Useful as generic logger...
     class KCC(KvaserCanChannel):
         def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
             super(KCC, self).__init__(channel, bitrate, silent)
-            canmsg.CanMsg.format_set(canmsg.FORMAT_STCAN)
+            #canmsg.CanMsg.format_set(canmsg.FORMAT_STCAN)
+            self.ext = False
+            self.pmode = 0
+            t = threading.Thread(target=self.primary_thread)
+            t.daemon = True
+            t.start()
+
+        def primary_thread(self):
+            time.sleep(1.0)
+            while True:
+                if self.pmode == 0:
+                    time.sleep(0.1)
+                    continue
+                if self.pmode == 1:
+                    time.sleep(0.25)
+                else:
+                    time.sleep(0.4)
+                m = self.msg_class()
+                if self.ext:
+                    m.extended = True
+                    m.id = (canmsg.GROUP_POUT << 27) | (0x800001 << 3) | canmsg.TYPE_OUT
+                else:
+                    m.extended = False
+                    m.id = (canmsg.GROUP_POUT << 9) | (0x0 << 3) | canmsg.TYPE_OUT
+                m.data = [0x00, 0x00]
+                self.write(m)
 
         def action_handler(self, c):
-            if c == 'l':
-                for i in range(100):
-                    m = self.msg_class()
-                    m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
-                    m.extended = False
-                    m.data = [i >> 8, i & 0xFF]
-                    self.write(m)
+            if c == 'e':
+                self.ext = not self.ext
+            elif c == 'p':
+                if self.pmode >= 2:
+                    self.pmode = 0
+                else:
+                    self.pmode += 1
+
             elif c == 's':
-                m = canmsg.CanMsg()
-                m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
-                m.extended = False
-                m.data = [ord(c) for c in 'hejsan']
-                self.write(m)
-            else:
-                try:
-                    self.i += 1
-                except:
-                    self.i = 0
-                m = canmsg.CanMsg()
-                m.id = (canmsg.GROUP_PIN << 27) | (1 << 3) | canmsg.TYPE_IN
-                m.extended = True
-                m.data = [self.i & 0xFF]
+                m = self.msg_class()
+                if self.ext:
+                    m.extended = True
+                    m.id = (canmsg.GROUP_SEC << 27) | (0x800001 << 3) | canmsg.TYPE_OUT
+                else:
+                    m.extended = False
+                    m.id = (canmsg.GROUP_SEC << 9) | (0x0 << 3) | canmsg.TYPE_OUT
+                m.data = [0x00, 0x63, 0x00, 0x1F]
                 self.write(m)
 
     cc = KCC(channel=opts.channel, bitrate=opts.bitrate, silent=opts.silent)

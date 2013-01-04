@@ -4,6 +4,7 @@ import threading
 import time
 import Queue
 import random
+import canchannel
 import cdcchannel
 import canmsg
 
@@ -29,6 +30,10 @@ class Ch(object):
             return self.q.get(0)
         except:
             return None
+
+class MyChannel(canchannel.CanChannel):
+    def __init__(self, **kwargs):
+        super(MyChannel, self).__init__(**kwargs)
 
 class App(object):
     def __init__(self, master):

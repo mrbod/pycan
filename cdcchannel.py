@@ -28,7 +28,7 @@ class CDCMsg(stcan.StCanMsg):
         self.cortex_channel = 0
 
 class CDCChannel(canchannel.CanChannel):
-    def __init__(self, channel, hostname, port, msg_class=CDCMsg):
+    def __init__(self, channel=-1, hostname='localhost', port=5555, msg_class=CDCMsg):
         self.channel = channel
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((hostname, port))
