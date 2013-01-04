@@ -6,7 +6,6 @@ import ctypes.util
 import time
 import canchannel
 import canmsg
-import stcan
 import optparse
 import interface
 
@@ -236,19 +235,20 @@ def main():
     # Useful as generic logger...
     class KCC(KvaserCanChannel):
         def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
-            super(KCC, self).__init__(channel, bitrate, silent, msg_class=stcan.StCanMsg)
+            super(KCC, self).__init__(channel, bitrate, silent)
+            canmsg.CanMsg.format_set(canmsg.FORMAT_STCAN)
 
         def action_handler(self, c):
             if c == 'l':
                 for i in range(100):
                     m = self.msg_class()
-                    m.id = (stcan.GROUP_PIN << 9) | (1 << 3) | stcan.TYPE_IN
+                    m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
                     m.extended = False
                     m.data = [i >> 8, i & 0xFF]
                     self.write(m)
             elif c == 's':
-                m = self.msg_class()
-                m.id = (stcan.GROUP_PIN << 9) | (1 << 3) | stcan.TYPE_IN
+                m = canmsg.CanMsg()
+                m.id = (canmsg.GROUP_PIN << 9) | (1 << 3) | canmsg.TYPE_IN
                 m.extended = False
                 m.data = [ord(c) for c in 'hejsan']
                 self.write(m)
@@ -257,8 +257,8 @@ def main():
                     self.i += 1
                 except:
                     self.i = 0
-                m = self.msg_class()
-                m.id = (stcan.GROUP_PIN << 27) | (1 << 3) | stcan.TYPE_IN
+                m = canmsg.CanMsg()
+                m.id = (canmsg.GROUP_PIN << 27) | (1 << 3) | canmsg.TYPE_IN
                 m.extended = True
                 m.data = [self.i & 0xFF]
                 self.write(m)

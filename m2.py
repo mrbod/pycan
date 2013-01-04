@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 import socketcan
 import threading
+import canmsg
 
 class M2(socketcan.SocketCanChannel):
-    def message_handler(self, m):
-        self.log(m)
-
     def action_handler(self, action):
         if action == 'P':
             ms = [self.msg_class(id=5, data=[x]) for x in range(10)]

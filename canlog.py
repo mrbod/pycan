@@ -4,7 +4,7 @@ import logging
 import logging.handlers
 import time
 import socketcan
-import stcan
+import canmsg
 
 def create_logger(filename):
     handler = logging.handlers.RotatingFileHandler(filename=filename, maxBytes=10000000, backupCount=100000)
@@ -22,8 +22,8 @@ def log(txt):
     logger.info(txt)
 
 def main():
-    #ch = socketcan.SocketCanChannel(int(sys.argv[1]))
-    ch = socketcan.SocketCanChannel(int(sys.argv[1]), msg_class=stcan.StCanMsg)
+    canmsg.CanMsg.format_set(canmsg.FORMAT_STCAN)
+    ch = socketcan.SocketCanChannel(int(sys.argv[1]))
     T0 = time.time()
     cnt = 0
     while True:

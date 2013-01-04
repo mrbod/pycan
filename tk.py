@@ -5,7 +5,7 @@ import time
 import Queue
 import random
 import cdcchannel
-import stcan
+import canmsg
 
 class Ch(object):
     def __init__(self):
@@ -49,7 +49,7 @@ class App(object):
         self.text.config(yscrollcommand = scrbar.set)
         self._auto_scroll = False
         self.row = 0
-        self.ch = cdcchannel.CDCChannel(0, "localhost", 5555, msg_class=stcan.StCanMsg)
+        self.ch = cdcchannel.CDCChannel(0, "localhost", 5555)
         self.ch.logger = self
         self.master.after(100, self.poll)
 

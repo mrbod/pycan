@@ -2,7 +2,6 @@
 import sys
 import socketcan
 import canmsg
-import stcan
 import optparse
 import random
 import time
@@ -27,7 +26,7 @@ def main(cnt, canid=None, data=None, file=None):
             d = random_data()
         if id == None:
             canid = random.randint(0, 2047)
-        m = cls(id=canid, data=d)
+        m = canmsg.CanMsg(id=canid, data=d)
         if file == None:
             ch.write(m)
         else:
@@ -55,9 +54,8 @@ if __name__ == '__main__':
     f = None
     if opts.stdout:
         f = sys.stdout
-    cls = canmsg.CanMsg
     if opts.bican:
-        cls = stcan.StCanMsg
+        canmsg.CanMsg.format_set(canmsg.FORMAT_STCAN)
     try:
         main(opts.count, opts.canid, opts.data, f)
     except KeyboardInterrupt:

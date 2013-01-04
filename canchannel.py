@@ -7,80 +7,97 @@ import random
 import canmsg
 
 class CanChannel(object):
-    def __init__(self, msg_class=canmsg.CanMsg):
+    def __init__(self, **kwargs):
+        self.msg_class = kwargs.pop('msg_class', canmsg.CanMsg)
+        super(CanChannel, self).__init__(**kwargs)
         self.starttime = time.time()
-        self.T0 = self.gettime()
-        self._write_lock = threading.Lock()
+        self.log_lock = threading.Lock()
         self.logger = None
         self.read_cnt = 0
         self.write_cnt = 0
-        self.msg_class = msg_class
         self._dT = 0.0
+        self.running = False
         self.wt = threading.Thread(target=self._writer)
-        self.rt = threading.Thread(target=self._reader)
-        self.mt = threading.Thread(target=self._message_handler)
         self.wt.daemon = True
+        self.rt = threading.Thread(target=self._reader)
         self.rt.daemon = True
+        self.mt = threading.Thread(target=self._message)
         self.mt.daemon = True
         self.wq = Queue.Queue()
         self.rq = Queue.Queue()
         self.mq = Queue.Queue()
-        self.running = True
-        self.mt.start()
-        self.wt.start()
-        self.rt.start()
+        self._go()
+
+    def _go(self):
+        if not self.running:
+            self.running = True
+            self.mt.start()
+            self.wt.start()
+            self.rt.start()
     
     def _writer(self):
         try:
+            self.info(3, 'writer thread started')
             while self.running:
                 try:
-                    m = self.wq.get(True, 0.1)
-                    self.do_write(m)
+                    m = self.wq.get(True, 1)
+                    if self.running:
+                        self.do_write(m)
                 except Queue.Empty:
                     pass
         except Exception, e:
-            sys.stderr.write(str(e) + '\n')
-            self.close()
+            self.info(0, str(e) + '\n')
             sys.exit()
+        finally:
+            self.info(3, 'writer thread exit')
 
     def _reader(self):
         try:
+            self.info(2, 'reader thread started')
             while self.running:
                 m = self.do_read()
-                if m:
+                if m and self.running:
                     self.rq.put(m)
         except Exception, e:
-            sys.stderr.write(str(e) + '\n')
-            self.close()
+            self.info(0, str(e) + '\n')
             sys.exit()
+        finally:
+            self.info(2, 'reader thread exit')
 
-    def _message_handler(self):
+    def _message(self):
         try:
+            self.info(1, 'message thread started')
             while self.running:
                 try:
-                    m = self.mq.get(True, 0.1)
-                    self.message_handler(m)
+                    m = self.mq.get(True, 1)
+                    if self.running:
+                        self.message_handler(m)
                 except Queue.Empty:
                     pass
         except Exception, e:
-            sys.stderr.write(str(e) + '\n')
-            self.close()
+            self.info(0, str(e) + '\n')
             sys.exit()
+        finally:
+            self.info(1, 'message thread exit')
 
     def open(self):
         self.starttime = time.time()
 
     def close(self):
+        self.info(4, 'close')
         self.running = False
-
-    def __del__(self):
-        self.close()
+        self.info(4, 'joining threads')
+        self.rt.join()
+        self.info(5, 'read thread joined')
+        self.wt.join()
+        self.info(5, 'write thread joined')
+        self.mt.join()
+        self.info(5, 'message thread joined')
 
     def gettime(self):
         return time.time() - self.starttime
 
     def do_read(self):
-        T = self.gettime()
         time.sleep(self._dT)
         self._dT = 0.5 * random.random()
         m = self.msg_class()
@@ -89,45 +106,51 @@ class CanChannel(object):
         else:
             m.id = random.randint(0, 2**29 - 1)
             m.extended = True
-        m.time = T
+        m.time = self.gettime()
         dlc = random.randint(0,8)
         m.data = [random.randint(0, 255) for x in range(dlc)]
         return m
 
     def do_write(self, m):
-        m.time = self.gettime()
+        pass
 
     def read(self):
         try:
             m = self.rq.get(False)
+            self.read_cnt += 1
+            m.channel = self
+            self.mq.put(m)
+            return m
         except Queue.Empty:
             return None
-        self.read_cnt += 1
-        m.channel = self
-        self.mq.put(m)
-        return m
 
     def write(self, m):
         self.write_cnt += 1
         m.channel = self
         m.sent = True
+        m.time = self.gettime()
         self.wq.put(m)
         self.mq.put(m)
 
     def info(self, row, x):
-        if self.logger != None:
+        if self.logger == None:
+            self.log(x)
+        else:
             self.logger.info(row, x)
 
     def log(self, x):
         if self.logger == None:
+            self.log_lock.acquire()
             sys.stdout.write(str(x))
             sys.stdout.write('\n')
             sys.stdout.flush()
+            self.log_lock.release()
         else:
             self.logger.log(x)
 
     def action_handler(self, key):
-        pass
+        if key == 'INIT':
+            self.open()
 
     def message_handler(self, m):
         self.log(m)
@@ -136,17 +159,28 @@ class CanChannel(object):
         pass
 
 def main():
-    sys.stdout.write('This is the base CAN channel class\n')
+    sys.stdout.write('This is the base CAN channel class.\n')
     sys.stdout.write('Only emulated CAN message input is provided.\n')
     ch = CanChannel()
     try:
-        while True:
-            m = ch.read()
-            if not m:
-                time.sleep(0)
+        s = raw_input('Use curses interface? [y/n]')
+        if s and (s[0] in 'yYjJ'):
+            import interface
+            i = interface.Interface(ch)
+            i.run()
+        else:
+            ch.open()
+            while True:
+                m = ch.read()
+                if not m:
+                    time.sleep(0.5)
+    except Exception, e:
+        sys.stderr.write(str(e))
+        raise
     finally:
+        sys.stdout.write('closing channel.\n')
         ch.close()
-        sys.stdout.write('channel closed...\n')
+        sys.stdout.write('channel closed.\n')
 
 if __name__ == '__main__':
     try:

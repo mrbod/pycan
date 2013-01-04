@@ -18,7 +18,7 @@ class SlotEntry(object):
         self.msg = msg
         self.cnt += 1
 
-class Logger(object):
+class CanLogger(object):
     slot_fmt = '{0.dt:7.3f} {0.msg:70s}\n'
 
     def __init__(self, logwin, infowin, static):
@@ -160,7 +160,7 @@ class Interface(object):
         self.line = -1
         self.scrolling = False
         self.static = static
-        self.mycmd = {'q':'QUIT', 'd':'SAVE', 's':'STATIC_TOGGLE', '[7~': 'KEY_HOME', '[8~':'KEY_END', '[3;3~':'KEY_DC'}
+        self.mycmd = {'f':'FORMAT', 'q':'QUIT', 'd':'SAVE', 's':'STATIC_TOGGLE', '[7~': 'KEY_HOME', '[8~':'KEY_END', '[3;3~':'KEY_DC'}
 
     def run(self):
         try:
@@ -203,6 +203,9 @@ class Interface(object):
                 elif c == 'KEY_HOME':
                     self.line = self.logger.home()
                     self.scrolling = True
+                    self.update()
+                elif c == 'FORMAT':
+                    canmsg.format_rotate()
                     self.update()
                 elif c == 'STATIC_TOGGLE':
                     self.logger.sequencial_toggle()
@@ -259,7 +262,7 @@ class Interface(object):
         self.infowin = infowin
         infowin.hline('-', self.mx)
         infowin.addstr(0, self.mx / 2 - 4, 'Info here')
-        infowin.addstr(2, 0, '[Alt-q]-quit, [Alt-s]-static view, [Alt-d]-dump to file \'dump\'')
+        infowin.addstr(2, 0, '[Alt-q]-quit, [Alt-s]-static view, [Alt-w]-write file \'dump\', [Alt-f]-rotate format')
         infowin.refresh()
         logwin = mainwin.subwin(self.my - INFO_WIN_SIZE, self.mx, 0, 0)
         self.logwin = logwin
@@ -268,7 +271,7 @@ class Interface(object):
         mainwin.leaveok(0)
         logwin.leaveok(0)
         infowin.leaveok(0)
-        self.logger = Logger(logwin, infowin, self.static)
+        self.logger = CanLogger(logwin, infowin, self.static)
         self.channel.logger = self.logger
         self.channel.action_handler('INIT')
         try:
@@ -277,7 +280,9 @@ class Interface(object):
             UT0 = T0
             while True:
                 T = self.time()
+                cnt = 0
                 if self.channel.read():
+                    cnt += 1
                     dt = T - UT0
                     if dt > 0.01:
                         UT0 = T
@@ -293,6 +298,8 @@ class Interface(object):
                     self.statistics.update(T, R, W)
                     self.logger.info(-2, str(self.statistics))
                     self.update()
+                elif cnt == 0:
+                    time.sleep(0.001)
         finally:
             self.channel.exit_handler()
             self.logger.stop()
