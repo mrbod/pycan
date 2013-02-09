@@ -19,7 +19,7 @@ class SlotEntry(object):
         self.cnt += 1
 
 class CanLogger(object):
-    slot_fmt = '{0.dt:7.3f} {0.msg:70s}\n'
+    slot_fmt = '{0.dt:7.3f} {0.cnt:04d} {0.msg:70s}\n'
 
     def __init__(self, logwin, infowin, static):
         self.my, self.mx = logwin.getmaxyx()
@@ -210,7 +210,7 @@ class Interface(object):
                 elif c == 'STATIC_TOGGLE':
                     self.logger.sequencial_toggle()
                 elif c == 'SAVE':
-                    self.logger.save('dump')
+                    self.logger.save('can.log')
                 elif c == 'KEY_ESC':
                     self.scrolling = False
                     self.line = -1
@@ -262,7 +262,7 @@ class Interface(object):
         self.infowin = infowin
         infowin.hline('-', self.mx)
         infowin.addstr(0, self.mx / 2 - 4, 'Info here')
-        infowin.addstr(2, 0, '[Alt-q]-quit, [Alt-s]-static view, [Alt-w]-write file \'dump\', [Alt-f]-rotate format')
+        infowin.addstr(2, 0, '[Alt-q]-quit, [Alt-s]-static view, [Alt-d]-write file \'can.log\', [Alt-f]-rotate format')
         infowin.refresh()
         logwin = mainwin.subwin(self.my - INFO_WIN_SIZE, self.mx, 0, 0)
         self.logwin = logwin

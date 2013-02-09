@@ -8,7 +8,8 @@ import getopt
 import Queue
 import canchannel
 import canmsg
-import stcan
+
+canmsg.format_set(canmsg.FORMAT_STCAN)
 
 _canre = re.compile(r'CAN\s+(?P<channel>\d+)\s+'
                  + r'(?P<id>\w+)\s+'
@@ -18,14 +19,17 @@ _canre = re.compile(r'CAN\s+(?P<channel>\d+)\s+'
 
 _mfmt = '{0.logtime:s} {0.channel:2d} {0.sid:>8} {0.stcan:^15s} {0.time:10d} {0.data:s}'
 
-class CDCMsg(stcan.StCanMsg):
-    _mfmt = '{0.cortex_channel:d} {0.cortex_num:3d} ' + stcan.StCanMsg._mfmt
-
+class CDCMsg(canmsg.CanMsg):
     def __init__(self, **kwargs):
         super(CDCMsg, self).__init__(**kwargs)
         self.cortex_time = 0
         self.cortex_num = 0
         self.cortex_channel = 0
+
+    def __str__(self):
+        s = '{0.cortex_channel:d} {0.cortex_num:3d} '.format(self)
+        return s + super(CDCMsg, self).__str__()
+
 
 class CDCChannel(canchannel.CanChannel):
     def __init__(self, channel=-1, hostname='localhost', port=5555, msg_class=CDCMsg):
@@ -76,14 +80,15 @@ class CDCChannel(canchannel.CanChannel):
             m.cortex_time = int(T & 0x00FFFFFF)
             m.cortex_num = int((T >> 24) & 0xFF)
             m.cortex_channel = C
-            old = self.last_msg.get(m.cortex_channel, -1)
-            if old != -1:
-                if ((old + 1) & 0xFF) != m.cortex_num:
-                    cnt = self.drop_cnt.get(C, 0)
-                    cnt += 1
-                    self.drop_cnt[C] = cnt
-                    self.info(3 + C, 'channel {0:d} dropped {1:<10d}'.format(C, cnt))
-            self.last_msg[C] = m.cortex_num
+            if m.type == canmsg.TYPE_IN:
+                old = self.last_msg.get(m.cortex_channel, -1)
+                if old != -1:
+                    if ((old + 1) & 0xFF) != m.cortex_num:
+                        cnt = self.drop_cnt.get(C, 0)
+                        cnt += 1
+                        self.drop_cnt[C] = cnt
+                        self.info(3 + C, 'channel {0:d} dropped {1:<10d}'.format(C, cnt))
+                self.last_msg[C] = m.cortex_num
             return m
         return None
 

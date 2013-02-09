@@ -42,6 +42,7 @@ class DLEHandler(object):
         self.get_start = True
         self.got_dle = False
         self.frame_reset()
+        self.rx = 0
 
     def dle_send(self, byte):
         if byte == DLE:
@@ -64,29 +65,46 @@ class DLEHandler(object):
     def frame_add(self, byte):
         self.frame.append(byte)
 
+    def dump_frame(self):
+        sys.stderr.write('FRAME so far: %s\n' % str(self.frame))
+
+    def error(self, txt):
+        sys.stderr.write('ERROR at byte %d(0x%08X):  %s\n' % (self.rx, self.rx, txt))
+
     def read(self):
         b = self.port.read()
         while b != EOF:
+            self.rx += 1
             if self.get_start:
                 if self.got_dle:
                     self.got_dle = False
                     if b == STX:
                         self.get_start = False
                         self.frame_reset()
+                    else:
+                        self.error('get_start, expected STX, got <0x%02X>' % b)
                 else:
                     if b == DLE:
                         self.got_dle = True
+                    else:
+                        self.error('get_start, expected DLE, got <0x%02X>' % b)
             else:
                 if self.got_dle:
                     self.got_dle = False
                     if b == ETX:
                         self.get_start = True
-                        return ''.join([chr(x) for x in self.frame])
+                        #return ''.join([chr(x) for x in self.frame])
+                        return self.frame
                     elif b == DLE:
                         self.frame_add(b)
                     elif b == STX:
+                        self.error('get_data, expected ETX, got STX')
+                        self.dump_frame()
                         self.frame_reset()
+                        return ERROR_PADDING
                     else:
+                        self.error('get_data, expected ETX, got <0x%02X>' % b)
+                        self.dump_frame()
                         self.get_start = True
                         return ERROR_PADDING
                 elif b == DLE:
