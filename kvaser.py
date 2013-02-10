@@ -102,6 +102,19 @@ canDRIVER_OFF = 0
 canOK = 0
 canERR_NOMSG = -2
 
+# (bitrate, tseg1, tseg2, sjw, nosamp, syncmode)
+bitrate_settings = {
+        canBITRATE_1M: (1000000, 4, 3, 1, 1, 0),
+        canBITRATE_500K: (500000, 4, 3, 1, 1, 0),
+        canBITRATE_250K: (250000, 4, 3, 1, 1, 0),
+        canBITRATE_125K: (125000, 10, 5, 1, 1, 0),
+        canBITRATE_100K: (100000, 10, 5, 1, 1, 0),
+        canBITRATE_83K: (83333, 5, 2, 2, 1, 0),
+        canBITRATE_62K: (62500, 10, 5, 1, 1, 0),
+        canBITRATE_50K: (50000, 10, 5, 1, 1, 0),
+        canBITRATE_10K: (10000, 11, 4, 1, 1, 0)
+        }
+
 class KvaserException(Exception):
     pass
 
@@ -126,13 +139,8 @@ class KvaserCanChannel(canchannel.CanChannel):
             s = ctypes.create_string_buffer(128)
             self.canlib.canGetErrorText(self.handle, s, 128)
             raise KvaserException('canOpenChannel=%d: %s' % (self.handle, s.value))
-        sys.stderr.write('handle: %d, bitrate: %d\n' % (self.handle, self.bitrate.value))
-        bitrate = 125000
-        res = self.canlib.canSetBusParams(self.handle, bitrate, 10, 5, 1, 1, 0)
-        if res != canOK:
-            s = ctypes.create_string_buffer(128)
-            self.canlib.canGetErrorText(res, s, 128)
-            raise KvaserException('canSetBusParams=%d: %s' % (res, s.value))
+        self.set_bitrate(self.handle, self.bitrate)
+
         res = self.canlib.canBusOn(self.handle)
         if res != canOK:
             s = ctypes.create_string_buffer(128)
@@ -151,6 +159,14 @@ class KvaserCanChannel(canchannel.CanChannel):
                 self.canlib.canGetErrorText(res, s, 128)
                 raise KvaserException('canSetBusOutputControl=%d: %s' % (res, s.value))
         super(KvaserCanChannel, self).__init__()
+
+    def set_baud(self, handle, baud):
+        settings = bitrate_settings[baud]
+        res = self.canlib.canSetBusParams(handle, *settings)
+        if res != canOK:
+            s = ctypes.create_string_buffer(128)
+            self.canlib.canGetErrorText(res, s, 128)
+            raise KvaserException('canSetBusParams=%d: %s' % (res, s.value))
 
     #def gettime(self):
         #return self.canlib.canReadTimer(self.handle) / 1000.0
