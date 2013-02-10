@@ -8,7 +8,6 @@ import canmsg
 
 class CanChannel(object):
     def __init__(self, **kwargs):
-        self.msg_class = kwargs.pop('msg_class', canmsg.CanMsg)
         super(CanChannel, self).__init__(**kwargs)
         self.starttime = time.time()
         self.log_lock = threading.Lock()
@@ -17,30 +16,30 @@ class CanChannel(object):
         self.write_cnt = 0
         self._dT = 0.0
         self.running = False
-        self.wt = threading.Thread(target=self._writer)
-        self.wt.daemon = True
-        self.rt = threading.Thread(target=self._reader)
-        self.rt.daemon = True
-        self.mt = threading.Thread(target=self._message)
-        self.mt.daemon = True
-        self.wq = Queue.Queue()
-        self.rq = Queue.Queue()
-        self.mq = Queue.Queue()
+        self.write_thread = threading.Thread(target=self._writer)
+        self.write_thread.daemon = True
+        self.read_thread = threading.Thread(target=self._reader)
+        self.read_thread.daemon = True
+        self.msg_handler_thread = threading.Thread(target=self._message)
+        self.msg_handler_thread.daemon = True
+        self.write_queue = Queue.Queue()
+        self.read_queue = Queue.Queue()
+        self.msg_handler_queue = Queue.Queue()
         self._go()
 
     def _go(self):
         if not self.running:
             self.running = True
-            self.mt.start()
-            self.wt.start()
-            self.rt.start()
+            self.msg_handler_thread.start()
+            self.write_thread.start()
+            self.read_thread.start()
     
     def _writer(self):
         try:
             self.info(3, 'writer thread started')
             while self.running:
                 try:
-                    m = self.wq.get(True, 1)
+                    m = self.write_queue.get(True, 1)
                     if self.running:
                         self.do_write(m)
                 except Queue.Empty:
@@ -57,7 +56,7 @@ class CanChannel(object):
             while self.running:
                 m = self.do_read()
                 if m and self.running:
-                    self.rq.put(m)
+                    self.read_queue.put(m)
         except Exception, e:
             self.info(0, str(e) + '\n')
             sys.exit()
@@ -69,7 +68,7 @@ class CanChannel(object):
             self.info(1, 'message thread started')
             while self.running:
                 try:
-                    m = self.mq.get(True, 1)
+                    m = self.msg_handler_queue.get(True, 1)
                     if self.running:
                         self.message_handler(m)
                 except Queue.Empty:
@@ -87,11 +86,11 @@ class CanChannel(object):
         self.info(4, 'close')
         self.running = False
         self.info(4, 'joining threads')
-        self.rt.join()
+        self.read_thread.join()
         self.info(5, 'read thread joined')
-        self.wt.join()
+        self.write_thread.join()
         self.info(5, 'write thread joined')
-        self.mt.join()
+        self.msg_handler_thread.join()
         self.info(5, 'message thread joined')
 
     def gettime(self):
@@ -100,7 +99,7 @@ class CanChannel(object):
     def do_read(self):
         time.sleep(self._dT)
         self._dT = 0.5 * random.random()
-        m = self.msg_class()
+        m = canmsg.CanMsg()
         if random.randint(0,1) == 0:
             m.id = random.randint(0, 2**11 - 1)
         else:
@@ -116,10 +115,10 @@ class CanChannel(object):
 
     def read(self):
         try:
-            m = self.rq.get(False)
+            m = self.read_queue.get(False)
             self.read_cnt += 1
             m.channel = self
-            self.mq.put(m)
+            self.msg_handler_queue.put(m)
             return m
         except Queue.Empty:
             return None
@@ -129,8 +128,8 @@ class CanChannel(object):
         m.channel = self
         m.sent = True
         m.time = self.gettime()
-        self.wq.put(m)
-        self.mq.put(m)
+        self.write_queue.put(m)
+        self.msg_handler_queue.put(m)
 
     def info(self, row, x):
         if self.logger == None:

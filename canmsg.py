@@ -47,9 +47,8 @@ class Data(bytearray):
         t = (data_fmt.format(d) for d in self)
         return ', '.join(t)
 
-members = ('id', 'xx_data', 'xx_extended', 'time', 'channel', 'sent')
 class CanMsg(object):
-    __slots__ = members
+    __slots__ = ('id', 'xx_data', 'xx_extended', 'time', 'channel', 'sent')
 
     def __init__(self, id=0, data=[], extended=False, time=0.0, channel=None, sent=False):
         super(CanMsg, self).__init__()
@@ -228,6 +227,14 @@ class CanMsg(object):
         else:
             data = []
         return cls(id=id, time=time, data=data, channel=channel)
+
+    @classmethod
+    def from_magnus(cls, s):
+        data = s.strip().split(None, 7)
+        id = int(data[5], 16)
+        time = int(data[4]) / 1000.0
+        data = [int(x, 16) for x in data[-1].split()]
+        return cls(id=id, time=time, data=data)
 
 biscan_re = re.compile(r'(\d+)\s+\d+\s+(\d+,\d+)\s+\w+\s+([0-9A-Fa-f]+)\s+\d\s+\[\s*([^]]*)\]')
 

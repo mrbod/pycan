@@ -20,7 +20,7 @@ class BICAN(socketcan.SocketCanChannel):
         self.run_thread = True
         self.thread = threading.Thread(target=self.run, name='Worker')
         self.exception = None
-        socketcan.SocketCanChannel.__init__(self, silent=silent, channel=channel, msg_class=stcan.StCanMsg)
+        socketcan.SocketCanChannel.__init__(self, silent=silent, channel=channel)
         self.thread.start()
 
     def gen_msg(self, id, t=0.0):

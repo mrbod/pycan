@@ -106,7 +106,7 @@ class KvaserException(Exception):
     pass
 
 class KvaserCanChannel(canchannel.CanChannel):
-    def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False, msg_class=canmsg.CanMsg):
+    def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
         self.canlib = None
         if sys.platform == 'linux2':
             self.canlib = ctypes.CDLL('libcanlib.so')
@@ -150,7 +150,7 @@ class KvaserCanChannel(canchannel.CanChannel):
                 s = ctypes.create_string_buffer(128)
                 self.canlib.canGetErrorText(res, s, 128)
                 raise KvaserException('canSetBusOutputControl=%d: %s' % (res, s.value))
-        super(KvaserCanChannel, self).__init__(msg_class=msg_class)
+        super(KvaserCanChannel, self).__init__()
 
     #def gettime(self):
         #return self.canlib.canReadTimer(self.handle) / 1000.0
@@ -173,7 +173,7 @@ class KvaserCanChannel(canchannel.CanChannel):
                 ext = True
             else:
                 ext = False
-            m = self.msg_class(id=id.value, data=d, extended=ext, time=T, channel=self)
+            m = canmsg.CanMsg(id=id.value, data=d, extended=ext, time=T, channel=self)
             return m
         if res != canERR_NOMSG:
             s = ctypes.create_string_buffer(128)
@@ -257,7 +257,7 @@ def main():
                     time.sleep(0.25)
                 else:
                     time.sleep(0.4)
-                m = self.msg_class()
+                m = canmsg.CanMsg()
                 if self.ext:
                     m.extended = True
                     m.id = (canmsg.GROUP_POUT << 27) | (0x800001 << 3) | canmsg.TYPE_OUT
@@ -277,7 +277,7 @@ def main():
                     self.pmode += 1
 
             elif c == 's':
-                m = self.msg_class()
+                m = canmsg.CanMsg()
                 if self.ext:
                     m.extended = True
                     m.id = (canmsg.GROUP_SEC << 27) | (0x800001 << 3) | canmsg.TYPE_OUT

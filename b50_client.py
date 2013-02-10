@@ -113,7 +113,7 @@ class App(object):
 class UDPCanChannel(canchannel.CanChannel):
     def __init__(self, ip='localhost', port=2000):
         self.app = App(self)
-        canchannel.CanChannel.__init__(self, msg_class=stcan.StCanMsg)
+        canchannel.CanChannel.__init__(self)
         self.dle_handler = dle.DLEHandler(UDPPort((ip, port)))
         self.outqueue = []
         self.managed = set()

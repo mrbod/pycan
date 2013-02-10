@@ -143,7 +143,7 @@ class StCanChannel(socketcan.SocketCanChannel):
         self.thread = threading.Thread(target=self.run)
         self.run_thread = True
         self.thread.start()
-        super(StCanChannel, self).__init__(channel=channel, msg_class=StCanMsg)
+        super(StCanChannel, self).__init__(channel=channel)
 
     def __del__(self):
         self.close()

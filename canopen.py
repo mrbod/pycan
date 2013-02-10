@@ -85,7 +85,7 @@ if __name__ == '__main__':
         elif o == '-':
             parse_stdin()
             sys.exit(0)
-    c = socketcan.SocketCanChannel(0, msg_class=CanOpenMsg)
+    c = socketcan.SocketCanChannel(0)
     i = interface.Interface(c, static=static)
     i.run()
     #cProfile.run('i.run()', 'profile')

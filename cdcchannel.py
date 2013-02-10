@@ -32,7 +32,7 @@ class CDCMsg(canmsg.CanMsg):
 
 
 class CDCChannel(canchannel.CanChannel):
-    def __init__(self, channel=-1, hostname='localhost', port=5555, msg_class=CDCMsg):
+    def __init__(self, channel=-1, hostname='localhost', port=5555):
         self.channel = channel
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((hostname, port))
@@ -41,7 +41,7 @@ class CDCChannel(canchannel.CanChannel):
         else:
             self.socket.send('OPEN {0:d}\n'.format(self.channel))
         self.q = Queue.Queue()
-        super(CDCChannel, self).__init__(msg_class=msg_class)
+        super(CDCChannel, self).__init__()
         self.last_msg = {}
         self.drop_cnt = {}
 
@@ -72,7 +72,7 @@ class CDCChannel(canchannel.CanChannel):
                 D = [int(x, 16) for x in md['data'].split(',')]
             else:
                 D = []
-            m = self.msg_class()
+            m = CDCMsg()
             m.id = ID
             m.extended = E
             m.time = self.gettime()
@@ -110,17 +110,12 @@ class CDCChannel(canchannel.CanChannel):
 
     def message_handler(self, m):
         self.log(m)
-        if not m.sent and (m.addr == 0x4):
-            self.info(5, 'pft')
-            n = self.msg_class(data=m)
-            n.extended = True
-            self.write(n)
 
     def action_handler(self, key):
         if key == 'INIT':
             self.info(6, 'CDC channel {0}'.format(self.channel))
         elif key == 's':
-            m = self.msg_class()
+            m = CDCMsg()
             m.id = 1
             m.data = [1,2,3]
             m.extended = True
@@ -131,6 +126,7 @@ def usage():
     s = s.format(sys.argv[0])
     sys.stderr.write(s)
     sys.stderr.write('\twhere ch is 0 by default\n')
+    sys.stderr.write('\tif ch < 0 all cdcs traffic will be received\n')
 
 def main():
     import interface
@@ -154,9 +150,10 @@ def main():
         sys.stderr.write('error: missing argument\n')
         usage()
         sys.exit(1)
-    c = CDCChannel(channel, host, port, msg_class=CDCMsg)
+    c = CDCChannel(channel, host, port)
     i = interface.Interface(c)
     i.run()
 
 if __name__ == '__main__':
     main()
+

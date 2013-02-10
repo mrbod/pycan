@@ -6,11 +6,11 @@ import canmsg
 class M2(socketcan.SocketCanChannel):
     def action_handler(self, action):
         if action == 'P':
-            ms = [self.msg_class(id=5, data=[x]) for x in range(10)]
+            ms = [canmsg.CanMsg(id=5, data=[x]) for x in range(10)]
             for m in ms:
                 self.write(m)
         elif action == 'Q':
-            ms = [self.msg_class(id=5, data=[x]) for x in range(100)]
+            ms = [canmsg.CanMsg(id=5, data=[x]) for x in range(100)]
             for m in ms:
                 self.write(m)
         elif action == 'T':
@@ -19,7 +19,7 @@ class M2(socketcan.SocketCanChannel):
             def foo():
                 x = 0
                 while self.run:
-                    m = self.msg_class(id=5, data=[x & 0xFF])
+                    m = canmsg.CanMsg(id=5, data=[x & 0xFF])
                     self.write(m)
                     x += 1
             self.run = True

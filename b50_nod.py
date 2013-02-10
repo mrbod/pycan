@@ -18,7 +18,7 @@ class BICAN(socketcan.SocketCanChannel):
         self.exception = None
         self.run_primary = False
         self.load = False
-        socketcan.SocketCanChannel.__init__(self, channel=channel, msg_class=stcan.StCanMsg)
+        socketcan.SocketCanChannel.__init__(self, channel=channel)
         self.thread.start()
 
     def gen_primary(self):

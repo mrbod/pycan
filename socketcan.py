@@ -55,7 +55,7 @@ class SocketCanChannel(canchannel.CanChannel):
         mid = mid & 0x1FFFFFFF
         mdlc = ord(mdlca[0])
         data=[ord(x) for x in mdata[:mdlc]]
-        return self.msg_class(id=mid, data=data, time=timestamp, extended=ext)
+        return canmsg.CanMsg(id=mid, data=data, time=timestamp, extended=ext)
 
     def pack(self, m):
         dlc = m.dlc

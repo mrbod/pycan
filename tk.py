@@ -54,7 +54,6 @@ class App(object):
         self.auto_scroll = False
         self.row = 0
         self.ch =  Ch()
-        #cdcchannel.CDCChannel(0, "slacker", 5555, msg_class=stcan.StCanMsg)
         self.root.after(100, self.poll)
 
     def mainloop(self):
