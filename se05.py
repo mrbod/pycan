@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-import socketcan
+import kvaser
 import interface
 import canmsg
 import time
 import threading
 
-class Channel(socketcan.SocketCanChannel):
+class Channel(kvaser.KvaserCanChannel):
     def __init__(self, **kwargs):
         super(Channel, self).__init__(**kwargs)
         self.run = False

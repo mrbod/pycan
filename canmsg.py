@@ -48,9 +48,9 @@ class Data(bytearray):
         return ', '.join(t)
 
 class CanMsg(object):
-    __slots__ = ('id', 'xx_data', 'xx_extended', 'time', 'channel', 'sent')
+    __slots__ = ('id', 'xx_data', 'xx_extended', 'time', 'channel', 'sent', 'error_frame')
 
-    def __init__(self, id=0, data=[], extended=False, time=0.0, channel=None, sent=False):
+    def __init__(self, id=0, data=[], extended=False, time=0.0, channel=None, sent=False, error_frame=False):
         super(CanMsg, self).__init__()
         if isinstance(data, type(self)):
             self.id = data.id
@@ -64,6 +64,7 @@ class CanMsg(object):
             self.time = time
         self.channel = channel
         self.sent = sent
+        self.error_frame = error_frame
 
     @staticmethod
     def format_set(cls, fmt):
@@ -141,6 +142,13 @@ class CanMsg(object):
         else:
             return (self.id >> 9) & 0x3
 
+    @group.setter
+    def group(self, g):
+        if self.extended:
+            self.id = (self.id & 0x07FFFFFF) | (g << 27)
+        else:
+            self.id = (self.id & 0x1FF) | (g << 9)
+
     @property
     def sgroup(self):
         try:
@@ -151,6 +159,10 @@ class CanMsg(object):
     @property
     def type(self):
         return self.id & 0x7
+
+    @type.setter
+    def type(self, t):
+        self.id = (self.id & 0xFFFFFFF8) | t
 
     @property
     def stype(self):
@@ -193,6 +205,8 @@ class CanMsg(object):
         d[s+1] = word & 0xFF
 
     def __str__(self):
+        if self.error_frame:
+            return 'ERROR FRAME'
         return msg_fmt.format(self)
 
     def __eq__(self, other):

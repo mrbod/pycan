@@ -138,9 +138,12 @@ class KvaserCanChannel(canchannel.CanChannel):
         if self.handle < 0:
             s = ctypes.create_string_buffer(128)
             self.canlib.canGetErrorText(self.handle, s, 128)
-            raise KvaserException('canOpenChannel=%d: %s' % (self.handle, s.value))
-        self.set_bitrate(self.handle, self.bitrate)
-
+            raise KvaserException('canOpenChannel(%d, 0x%X=%d: %s' % (channel, self.flags.value, self.handle, s.value))
+        res = self.canlib.canSetBusParams(self.handle, *bitrate_settings[bitrate])
+        if res != canOK:
+            s = ctypes.create_string_buffer(128)
+            self.canlib.canGetErrorText(res, s, 128)
+            raise KvaserException('canSetBusParams=%d: %s' % (res, s.value))
         res = self.canlib.canBusOn(self.handle)
         if res != canOK:
             s = ctypes.create_string_buffer(128)
@@ -168,8 +171,10 @@ class KvaserCanChannel(canchannel.CanChannel):
             self.canlib.canGetErrorText(res, s, 128)
             raise KvaserException('canSetBusParams=%d: %s' % (res, s.value))
 
-    #def gettime(self):
-        #return self.canlib.canReadTimer(self.handle) / 1000.0
+    def gettime(self):
+        time = ctypes.c_uint()
+        self.canlib.canReadTimer(self.handle, ctypes.byref(time))
+        return time.value / 1000.0
 
     def __del__(self):
         if self.canlib != None:
@@ -180,10 +185,13 @@ class KvaserCanChannel(canchannel.CanChannel):
         data = ctypes.create_string_buffer(8)
         dlc = ctypes.c_int()
         flags = ctypes.c_int()
-        time = ctypes.c_int()
-        res = self.canlib.canRead(self.handle, ctypes.byref(id), data, ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(time))
+        T = ctypes.c_uint()
+        res = self.canlib.canRead(self.handle, ctypes.byref(id), data, ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(T))
         if res == canOK:
             T = self.gettime()
+            if flags.value & canMSG_ERROR_FRAME:
+                m = canmsg.CanMsg(error_frame=True)
+                return m
             d = [ord(data[i]) for i in range(dlc.value)]
             if flags.value & canMSG_EXT != 0:
                 ext = True
@@ -195,6 +203,7 @@ class KvaserCanChannel(canchannel.CanChannel):
             s = ctypes.create_string_buffer(128)
             self.canlib.canGetErrorText(res, s, 128)
             raise KvaserException('%d: %s' % (res, s.value))
+        time.sleep(0.001)
         return None
 
     def do_write(self, msg):
@@ -208,12 +217,12 @@ class KvaserCanChannel(canchannel.CanChannel):
             cnt += 1
             res = self.canlib.canWrite(self.handle, msg.id, d, len(d), flags)
             if res == 0:
+                msg.time = self.gettime()
                 break
-            elif cnt % 10 == 0:
+            if cnt % 10 == 0:
                 self.info(5, 'written {0} times'.format(cnt))
             elif cnt > 10000:
                 raise KvaserException('do_write failed(%d)' % res)
-        msg.time = self.gettime()
 
 class KvaserOptions(optparse.OptionParser):
     def __init__(self):
@@ -258,7 +267,7 @@ def main():
         def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
             super(KCC, self).__init__(channel, bitrate, silent)
             self.ext = False
-            self.pmode = 0
+            self.pmode = False
             t = threading.Thread(target=self.primary_thread)
             t.daemon = True
             t.start()
@@ -266,20 +275,15 @@ def main():
         def primary_thread(self):
             time.sleep(1.0)
             while True:
-                if self.pmode == 0:
+                if not self.pmode:
                     time.sleep(0.1)
                     continue
-                if self.pmode == 1:
-                    time.sleep(0.25)
-                else:
-                    time.sleep(0.4)
+                time.sleep(0.4)
                 m = canmsg.CanMsg()
-                if self.ext:
-                    m.extended = True
-                    m.id = (canmsg.GROUP_POUT << 27) | (0x800001 << 3) | canmsg.TYPE_OUT
-                else:
-                    m.extended = False
-                    m.id = (canmsg.GROUP_POUT << 9) | (0x0 << 3) | canmsg.TYPE_OUT
+                m.extended = self.ext
+                m.group = canmsg.GROUP_PIN
+                m.type = canmsg.TYPE_IN
+                m.addr = 0x0F
                 m.data = [0x00, 0x00]
                 self.write(m)
 
@@ -287,21 +291,23 @@ def main():
             if c == 'e':
                 self.ext = not self.ext
             elif c == 'p':
-                if self.pmode >= 2:
-                    self.pmode = 0
-                else:
-                    self.pmode += 1
-
+                self.pmode = not self.pmode
             elif c == 's':
                 m = canmsg.CanMsg()
-                if self.ext:
-                    m.extended = True
-                    m.id = (canmsg.GROUP_SEC << 27) | (0x800001 << 3) | canmsg.TYPE_OUT
-                else:
-                    m.extended = False
-                    m.id = (canmsg.GROUP_SEC << 9) | (0x0 << 3) | canmsg.TYPE_OUT
+                m.extended = self.ext
+                m.group = canmsg.GROUP_PIN
+                m.type = canmsg.TYPE_IN
+                m.addr = 0x0F
                 m.data = [0x00, 0x63, 0x00, 0x1F]
                 self.write(m)
+            elif c == 'l':
+                for i in range(16):
+                    m = canmsg.CanMsg()
+                    m.extended = self.ext
+                    m.id = 0x3F0
+                    m.data = [i & 0xFF]
+                    self.write(m)
+                    time.sleep(.01)
 
     cc = KCC(channel=opts.channel, bitrate=opts.bitrate, silent=opts.silent)
     i = interface.Interface(cc)
