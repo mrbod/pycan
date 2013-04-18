@@ -55,7 +55,11 @@ class Channel(kvaser.KvaserCanChannel):
         return super(Channel, self).message_handler(m)
 
 def main():
-    ch = Channel(channel=0)
+    try:
+        chno = int(sys.argv[1])
+    except:
+        chno = 0
+    ch = Channel(channel=chno)
     try:
         i = interface.Interface(ch)
         i.run()

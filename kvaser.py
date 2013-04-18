@@ -128,12 +128,13 @@ class KvaserCanChannel(canchannel.CanChannel):
         elif sys.platform == 'win32':
             self.canlib = ctypes.windll.canlib32
         else:
-            raise KvaserException('Unknown platform: {0:s}'.format(sys.platform))
+            s = 'Unknown platform: {0:s}'.format(sys.platform)
+            raise KvaserException(s)
         self.canlib.canInitializeLibrary()
         self.channel = ctypes.c_int(channel)
         self.bitrate = ctypes.c_int(bitrate)
         self.silent = silent
-        self.flags = ctypes.c_int(canWANT_EXCLUSIVE | canWANT_EXTENDED)
+        self.flags = ctypes.c_int(canWANT_EXTENDED)
         self.handle = self.canlib.canOpenChannel(self.channel, self.flags)
         if self.handle < 0:
             s = ctypes.create_string_buffer(128)

@@ -1,43 +1,69 @@
 #!/bin/env python
-import stcan
+import canmsg
 import sys
 import time
 import threading
-import socketcan
+import kvaser
 import random
 
 def B50_ID(uid):
     return ((0 << 23) | uid) 
 
 def myid(x):
-    return (stcan.GROUP_PIN << 27) | (B50_ID(x) << 3) | stcan.TYPE_IN
+    return (canmsg.GROUP_PIN << 27) | (B50_ID(x) << 3) | canmsg.TYPE_IN
 
-class BICAN(socketcan.SocketCanChannel):
-    def __init__(self, channel=0, silent=False, nodes=10):
+class BICAN(kvaser.KvaserCanChannel):
+    def __init__(self, *args, **kwargs):
+        for k, v in kwargs.items():
+            sys.stderr.write('%s = %s\n' % (k, v))
+        nodes = kwargs.pop('nodes', None)
+        if nodes == None:
+            nodes = 10
         self.nodes = [self.gen_msg(myid(x + 1)) for x in range(nodes)]
         self.node_count = len(self.nodes)
         self.max_addr = B50_ID(self.node_count)
         self.run_thread = True
         self.thread = threading.Thread(target=self.run, name='Worker')
         self.exception = None
-        socketcan.SocketCanChannel.__init__(self, silent=silent, channel=channel)
+        self.start_time = time.time()
+        super(BICAN, self).__init__(*args, **kwargs)
         self.thread.start()
 
-    def gen_msg(self, id, t=0.0):
-        m = stcan.StCanMsg(id=id, time=t, extended=True, data=[0, 0])
+    def gen_msg(self, id):
+        m = canmsg.CanMsg(id=id, extended=True, data=[0, 0])
         return m
+
+    def gettime(self):
+        return time.time() - self.start_time
 
     def run(self):
         try:
+            for m in self.nodes:
+                self.write(m)
+            eventT = time.time()
+            eventN = None
+            event_interval = 1.0
             while self.run_thread:
                 time.sleep(0.010)
-                self.nodes[random.randint(0, self.node_count-1)].data[0] ^= 1
-                for i in xrange(self.node_count):
-                    m = self.nodes[i]
-                    T = time.time()
+                T = time.time()
+                if T - eventT > event_interval:
+                    eventT = T
+                    if eventN == None:
+                        eventN = random.randint(0, self.node_count-1)
+                        m = self.nodes[eventN]
+                        m.data[0] ^= 1
+                        event_interval = 0.3
+                    else:
+                        m = self.nodes[eventN]
+                        m.data[0] ^= 1
+                        eventN = None
+                        event_interval = 1.0
+                    self.write(m)
+                for i, m in enumerate(self.nodes):
+                    T = self.gettime()
                     if (T - m.time) > 0.4:
                         self.write(m)
-                        self.nodes[i] = self.gen_msg(m.id, T)
+                    self.nodes[i] = canmsg.CanMsg(data=m)
         except Exception, e:
             self.exception = e
             raise
@@ -48,15 +74,15 @@ class BICAN(socketcan.SocketCanChannel):
             ask = m.get_word(1)
             if ask == 30:
                 # node type
-                i = (stcan.GROUP_CFG << 27) | (m.addr << 3) | stcan.TYPE_IN
+                i = (canmsg.GROUP_CFG << 27) | (m.addr << 3) | canmsg.TYPE_IN
                 d = [0x00, 0x1E, 0x90, 0x00]
-                msg = stcan.StCanMsg(id=i, data=d, extended=m.extended)
+                msg = canmsg.CanMsg(id=i, data=d, extended=m.extended)
                 self.write(msg)
             elif ask == 31:
                 # sw version
-                i = (stcan.GROUP_CFG << 27) | (m.addr << 3) | stcan.TYPE_IN
+                i = (canmsg.GROUP_CFG << 27) | (m.addr << 3) | canmsg.TYPE_IN
                 d = [0x00, 0x1F, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00]
-                msg = stcan.StCanMsg(id=i, data=d, extended=m.extended)
+                msg = canmsg.CanMsg(id=i, data=d, extended=m.extended)
                 self.write(msg)
 
     def message_handler(self, m):
@@ -64,8 +90,8 @@ class BICAN(socketcan.SocketCanChannel):
             raise self.exception
         if not m.sent:
             if m.addr <= self.max_addr:
-                if m.type == stcan.TYPE_OUT:
-                    if m.group == stcan.GROUP_CFG:
+                if m.type == canmsg.TYPE_OUT:
+                    if m.group == canmsg.GROUP_CFG:
                         self.handle_config(m)
 
     def exit_handler(self):
@@ -93,8 +119,17 @@ def main(ch):
             time.sleep(0.010)
 
 if __name__ == '__main__':
-    channel = 0
-    nodecnt = 5
+    try: 
+        nodecnt = int(sys.argv[1])
+    except:
+        sys.stderr.write('usage: %s <node count> [channel]\n' % sys.argv[0])
+        sys.exit(1)
+    try: 
+        channel = int(sys.argv[2])
+        sys.stdout.write('using channel: %d\n' % channel)
+    except:
+        channel = 0
+        sys.stdout.write('using default channel: 0\n')
     i = 1
     while i < len(sys.argv):
         o = sys.argv[i]
@@ -107,7 +142,7 @@ if __name__ == '__main__':
         i += 1
 
     logger = Log()
-    c = BICAN(channel, nodes=nodecnt)
+    c = BICAN(channel=channel, nodes=nodecnt)
     c.logger = logger
     try:
         main(c)
