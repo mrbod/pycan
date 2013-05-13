@@ -4,7 +4,7 @@ import threading
 import time
 import Queue
 import random
-import kvaser
+import canchannel
 import canmsg
 
 class Ch(object):
@@ -55,6 +55,7 @@ class App(object):
         self.auto_scroll = False
         self.row = 0
         self.ch = channel
+        self.end = False
         self.root.after(100, self.poll)
 
     def mainloop(self):
@@ -77,7 +78,8 @@ class App(object):
             m = self.ch.read()
         if not self.auto_scroll:
             self.text.see(END)
-        self.root.after(100, self.poll)
+        if not self.end:
+            self.root.after(100, self.poll)
 
     def info(self, row, m):
         self.iw.insert(END, "{0}\n".format(str(m)))
@@ -87,7 +89,7 @@ class App(object):
         self.text.insert(END, "{1:5d}: {0}\n".format(str(m), self.row))
 
 def main():
-    c = kvaser.KvaserCanChannel()
+    c = canchannel.CanChannel()
     app = App(c)
     app.mainloop()
 
