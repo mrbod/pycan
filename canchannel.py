@@ -9,9 +9,10 @@ import canmsg
 class CanChannel(object):
     def __init__(self, **kwargs):
         super(CanChannel, self).__init__(**kwargs)
-        self.starttime = time.time()
         self.log_lock = threading.Lock()
         self.logger = None
+        self.starttime = 0
+        self.starttime = self.gettime()
         self.read_cnt = 0
         self.write_cnt = 0
         self._dT = 0.0

@@ -7,7 +7,6 @@ import time
 import canchannel
 import canmsg
 import optparse
-import interface
 
 canMSG_RTR = 0x0001      # Message is a remote request
 canMSG_STD = 0x0002      # Message has a standard ID
@@ -26,21 +25,21 @@ canMSGERR_BIT0 = 0x4000      # Sent dom, read rec
 canMSGERR_BIT1 = 0x8000      # Sent rec, read dom
 
 flags_inv = {
-        0x0001: 'canMSG_RTR',
-        0x0002: 'canMSG_STD',
-        0x0004: 'canMSG_EXT',
-        0x0008: 'canMSG_WAKEUP',
-        0x0010: 'canMSG_NERR',
-        0x0020: 'canMSG_ERROR_FRAME',
-        0x0040: 'canMSG_TXACK',
-        0x0080: 'canMSG_TXRQ',
-        0x0200: 'canMSGERR_HW_OVERRUN',
-        0x0400: 'canMSGERR_SW_OVERRUN',
-        0x0800: 'canMSGERR_STUFF',
-        0x1000: 'canMSGERR_FORM',
-        0x2000: 'canMSGERR_CRC',
-        0x4000: 'canMSGERR_BIT0',
-        0x8000: 'canMSGERR_BIT1',
+        canMSG_RTR: 'canMSG_RTR',
+        canMSG_STD: 'canMSG_STD',
+        canMSG_EXT: 'canMSG_EXT',
+        canMSG_WAKEUP: 'canMSG_WAKEUP',
+        canMSG_NERR: 'canMSG_NERR',
+        canMSG_ERROR_FRAME: 'canMSG_ERROR_FRAME',
+        canMSG_TXACK: 'canMSG_TXACK',
+        canMSG_TXRQ: 'canMSG_TXRQ',
+        canMSGERR_HW_OVERRUN: 'canMSGERR_HW_OVERRUN',
+        canMSGERR_SW_OVERRUN: 'canMSGERR_SW_OVERRUN',
+        canMSGERR_STUFF: 'canMSGERR_STUFF',
+        canMSGERR_FORM: 'canMSGERR_FORM',
+        canMSGERR_CRC: 'canMSGERR_CRC',
+        canMSGERR_BIT0: 'canMSGERR_BIT0',
+        canMSGERR_BIT1: 'canMSGERR_BIT1',
         }
 
 flag_texts = {
@@ -72,16 +71,23 @@ canBITRATE_83K = -8
 canBITRATE_10K = -9
 
 bitrates = {
-        canBITRATE_1M: '1M',
-        canBITRATE_500K: '500K',
-        canBITRATE_250K: '250K',
-        canBITRATE_125K: '125K',
-        canBITRATE_100K: '100K',
-        canBITRATE_62K: '62K',
-        canBITRATE_50K: '50K',
-        canBITRATE_83K: '83K',
-        canBITRATE_10K: '10K'
+        canBITRATE_1M: ('1M', '1000000'),
+        canBITRATE_500K: ('500K', '500000'),
+        canBITRATE_250K: ('250K', '250000'),
+        canBITRATE_125K: ('125K', '125000'),
+        canBITRATE_100K: ('100K', '100000'),
+        canBITRATE_62K: ('62K', '62000'),
+        canBITRATE_50K: ('50K', '50000'),
+        canBITRATE_83K: ('83K', '83000'),
+        canBITRATE_10K: ('10K', '10000')
         }
+def bitrate_search(x):
+    x = str(x)
+    for k, v in bitrates.items():
+        for br in v:
+            if x == br:
+                return k
+    return None
 
 canWANT_EXCLUSIVE = 0x0008
 canWANT_EXTENDED = 0x0010
@@ -132,6 +138,11 @@ class KvaserCanChannel(canchannel.CanChannel):
             raise KvaserException(s)
         self.canlib.canInitializeLibrary()
         self.channel = ctypes.c_int(channel)
+        if bitrate not in bitrates.keys():
+            br = bitrate_search(bitrate)
+            if br is None:
+                raise KvaserException('Unknown bitrate: {0}'.format(str(bitrate)))
+            bitrate = br
         self.bitrate = ctypes.c_int(bitrate)
         self.silent = silent
         self.flags = ctypes.c_int(canWANT_EXTENDED)
@@ -189,7 +200,8 @@ class KvaserCanChannel(canchannel.CanChannel):
         T = ctypes.c_uint()
         res = self.canlib.canRead(self.handle, ctypes.byref(id), data, ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(T))
         if res == canOK:
-            T = self.gettime()
+            #T = self.gettime()
+            t = T.value / 1000.0
             if flags.value & canMSG_ERROR_FRAME:
                 m = canmsg.CanMsg(error_frame=True)
                 return m
@@ -198,7 +210,7 @@ class KvaserCanChannel(canchannel.CanChannel):
                 ext = True
             else:
                 ext = False
-            m = canmsg.CanMsg(id=id.value, data=d, extended=ext, time=T, channel=self)
+            m = canmsg.CanMsg(id=id.value, data=d, extended=ext, time=t, channel=self)
             return m
         if res != canERR_NOMSG:
             s = ctypes.create_string_buffer(128)
@@ -229,12 +241,7 @@ class KvaserOptions(optparse.OptionParser):
     def __init__(self):
         optparse.OptionParser.__init__(self)
         def bitrate_callback(option, optstr, value, parser):
-            setattr(parser.values, option.dest, None)
-            for k, v in bitrates.items():
-                if v == value.upper():
-                    setattr(parser.values, option.dest, k)
-                elif v[:-1] == value:
-                    setattr(parser.values, option.dest, k)
+            setattr(parser.values, option.dest, bitrate_search(value))
             if parser.values.bitrate == None:
                 raise canchannel.optparse.OptionValueError('unknown bitrate <%s>' % value)
         self.add_option(
@@ -259,6 +266,7 @@ def parse_args():
 
 def main():
     opts, args = parse_args()
+    import interface
     import threading
     canmsg.format_set(canmsg.FORMAT_STCAN)
 

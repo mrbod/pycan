@@ -22,10 +22,10 @@ class Channel(kvaser.KvaserCanChannel):
         while self.run:
             m = canmsg.CanMsg()
             m.id = 77
-            m.data = [i % 256,1,1,1,1,1,1,1]
+            m.data = [i % 256,1]
             i += 1
             self.write(m)
-            time.sleep(0.400)
+            time.sleep(0.100)
 
     def action_handler(self, c):
         if c == 'p':

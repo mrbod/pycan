@@ -4,7 +4,7 @@ import threading
 import time
 import Queue
 import random
-import cdcchannel
+import kvaser
 import canmsg
 
 class Ch(object):
@@ -31,8 +31,9 @@ class Ch(object):
             return None
 
 class App(object):
-    def __init__(self):
+    def __init__(self, channel):
         self.root = Tk()
+        self.root.title('PyCAN')
         # buttons
         bf = Frame(self.root)
         bf.pack(side=BOTTOM)
@@ -53,7 +54,7 @@ class App(object):
         self.text.config(yscrollcommand = scrbar.set)
         self.auto_scroll = False
         self.row = 0
-        self.ch =  Ch()
+        self.ch = channel
         self.root.after(100, self.poll)
 
     def mainloop(self):
@@ -86,7 +87,8 @@ class App(object):
         self.text.insert(END, "{1:5d}: {0}\n".format(str(m), self.row))
 
 def main():
-    app = App()
+    c = kvaser.KvaserCanChannel()
+    app = App(c)
     app.mainloop()
 
 if __name__ == '__main__':

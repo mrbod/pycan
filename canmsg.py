@@ -38,8 +38,15 @@ def format_rotate():
     format_index += 1
     format_set(format_index)
 
+def data_parser(s):
+    if len(s) == 0:
+        return []
+    return [int(x, 0) for x in s.split(',')]
+
 class Data(bytearray):
     def __init__(self, data):
+        if type(data) is str:
+            data = data_parser(data)
         super(Data, self).__init__(data)
         self.dlc = len(self)
 
