@@ -260,10 +260,10 @@ def main():
                 m = self.msg_class()
                 if self.ext:
                     m.extended = True
-                    m.id = (canmsg.GROUP_POUT << 27) | (0x800001 << 3) | canmsg.TYPE_OUT
+                    m.id = (canmsg.GROUP_PIN << 27) | (0x40 << 3) | canmsg.TYPE_IN
                 else:
                     m.extended = False
-                    m.id = (canmsg.GROUP_POUT << 9) | (0x0 << 3) | canmsg.TYPE_OUT
+                    m.id = (canmsg.GROUP_PIN << 9) | (0x40 << 3) | canmsg.TYPE_IN
                 m.data = [0x00, 0x00]
                 self.write(m)
 
