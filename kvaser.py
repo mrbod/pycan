@@ -288,7 +288,7 @@ def main():
                 if not self.pmode:
                     time.sleep(0.1)
                     continue
-                time.sleep(0.4)
+                time.sleep(0.004)
                 m = canmsg.CanMsg()
                 m.extended = self.ext
                 m.group = canmsg.GROUP_PIN
@@ -309,6 +309,20 @@ def main():
                 m.type = canmsg.TYPE_IN
                 m.addr = 0x0F
                 m.data = [0x00, 0x63, 0x00, 0x1F]
+                self.write(m)
+            elif c == 'F':
+                m = canmsg.CanMsg()
+                m.group = canmsg.GROUP_POUT
+                m.type = canmsg.TYPE_OUT
+                m.addr = 1
+                m.data = [0]
+                self.write(m)
+            elif c == 'f':
+                m = canmsg.CanMsg()
+                m.group = canmsg.GROUP_PIN
+                m.type = canmsg.TYPE_IN
+                m.addr = 1
+                m.data = [0,0,0]
                 self.write(m)
             elif c == 'l':
                 for i in range(16):

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 import re
 
+class CanMsgException(Exception):
+    pass
+
 STCAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
 STCAN_TYPE = ('OUT', 'IN', 'UD2', 'UD3', 'UD4', 'MON', 'UD6', 'UD7')
 GROUP_POUT = 0
@@ -237,7 +240,7 @@ class CanMsg(object):
     def from_biscan(cls, s):
         o = biscan_re.match(s)
         if not o:
-            raise Exception('Not a frame: ' + s)
+            raise CanMsgException('Not a frame: ' + s)
         channel = int(o.group(1))
         time = float(o.group(2).replace(',', '.'))
         id = int(o.group(3), 16)

@@ -9,12 +9,28 @@ import numpy as np
 canmsg.format_set(canmsg.FORMAT_STCAN)
 
 def convert(f):
-    for L in sys.stdin:
-        try:
-            m = canmsg.CanMsg.from_biscan(L)
-            yield m
-        except Exception, e:
-            sys.stderr.write(str(e) + '\n')
+    thetime = None
+    incremental = False
+    def xxx(stream):
+        for L in stream:
+            try:
+                m = canmsg.CanMsg.from_biscan(L)
+                yield m
+            except canmsg.CanMsgException, e:
+                pass
+    messages = [m for m in xxx(sys.stdin)]
+    sequencial = True
+    for i in range(len(messages) - 1):
+        if messages[i].time > messages[i + 1].time:
+            sequencial = False
+    if thetime is None:
+        thetime = m.time
+    elif m.time < thetime:
+        incremental = True
+        thetime += m.time
+        m.time = thetime
+    else:
+        m.time -= thetime
 
 def qlpos(m):
     p = m.data[2]
@@ -24,7 +40,7 @@ def qlpos(m):
     return p
 
 def mgen():
-    for m in biscan.convert(sys.stdin):
+    for m in convert(sys.stdin):
         if m.id in (0x010, 0x211):
             yield m
 
@@ -64,7 +80,7 @@ def main():
     idm = {}
     pos = {}
     # convert
-    for m in biscan.convert(sys.stdin):
+    for m in convert(sys.stdin):
         l = idm.setdefault(m.id, [])
         l.append(m)
     # extract positions
@@ -76,23 +92,30 @@ def main():
     syns = np.interp(synt, pos[set_pos][0], pos[set_pos][1])
     syna = np.interp(synt, pos[actual_pos][0], pos[actual_pos][1])
     # start the plot
-    ax = plt.subplot(111)
+    ax = plt.subplot(211)
     # sync markers
     plt.plot(synt, syns, 'o', label=labels[sync], markersize=5.0)
     plt.plot(synt, syna, 'o', label=labels[sync], markersize=5.0)
     # positions
     for id in (set_pos, actual_pos):
         time, position = pos[id]
-        plt.plot(time, position, 'x-', label=labels[id], markersize=5.0)
+        plt.plot(time, position, 'x-', label=labels[id], markersize=9.0)
     # all about looks
     plt.xlabel('Time [s]')
     plt.ylabel('Position [pulses]')
     plt.grid()
     plt.legend()
+    ax = plt.subplot(212)
+    plt.xlabel('Set position dT [s]')
+    plt.ylabel('Count')
+    #dT = [b-a for a, b in zip(synt[:-1], synt[1:])]
+    #plt.hist(dT)
+    dT = [b-a for a, b in zip(pos[set_pos][0][:-1], pos[set_pos][0][1:])]
+    plt.hist(dT, bins=10)
     plt.show()
 
 def foo():
-    d = [m for m in biscan.convert(sys.stdin)]
+    d = [m for m in convert(sys.stdin)]
     mt = {}
     mp = {}
     for m in d:
@@ -115,6 +138,7 @@ def foo():
 if __name__ == '__main__':
     try:
         main()
+        #foo()
     except KeyboardInterrupt:
         pass
 

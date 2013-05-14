@@ -19,7 +19,7 @@ class SlotEntry(object):
         self.cnt += 1
 
 class CanLogger(object):
-    slot_fmt = '{0.dt:7.3f} {0.cnt:04d} {0.msg:70s}\n'
+    slot_fmt = '{0.dt:7.3f} {0.cnt:06d} {0.msg:70s}\n'
 
     def __init__(self, logwin, infowin, static):
         self.my, self.mx = logwin.getmaxyx()

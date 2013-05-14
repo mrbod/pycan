@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+import sys
+import time
+import kvaser
+import canmsg
+
+if len(sys.argv) > 1:
+    cnt = int(sys.argv[1])
+else:
+    cnt = 10
+
+ch = kvaser.KvaserCanChannel(channel=0, bitrate=kvaser.canBITRATE_500K)
+
+
+class XXX(object):
+    def log(self, x):
+        pass
+    def info(self, *args, **kwargs):
+        pass
+
+ch.logger = XXX()
+
+
+m = canmsg.CanMsg()
+m.extended = False
+m.id = 0x188
+#m.data = [(i >> 28) & 0xFF , (i >> 16) & 0xFF , (i >> 8) & 0xFF , i & 0xFF]
+#m.data = [0,0,0]
+m.data = [1,2,3,4,5,6,7,8]
+
+def main():
+    #for i in range(cnt):
+    while True:
+        ch.write(m)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+
+time.sleep(0.1)
+
