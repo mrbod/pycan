@@ -145,7 +145,7 @@ class KvaserCanChannel(canchannel.CanChannel):
             bitrate = br
         self.bitrate = ctypes.c_int(bitrate)
         self.silent = silent
-        self.flags = ctypes.c_int(canWANT_EXTENDED)
+        self.flags = ctypes.c_int(canWANT_EXTENDED | canOPEN_ACCEPT_VIRTUAL)
         self.handle = self.canlib.canOpenChannel(self.channel, self.flags)
         if self.handle < 0:
             s = ctypes.create_string_buffer(128)
