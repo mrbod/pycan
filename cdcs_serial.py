@@ -13,8 +13,10 @@ r = re.compile(pattern)
 
 def parse(cols):
     #date = [int(x) for x in cols[0].split('-')]
-    t = [float(x) for x in cols[1][:-1].split(':')]
-    T = t[0] * 60 * 60 + t[1] * 60 + t[2]
+    #t = [float(x) for x in cols[1][:-1].split(':')]
+    #T = t[0] * 60 * 60 + t[1] * 60 + t[2]
+    #t = '{0:8.3f}'.format(T)
+    t = cols[0] + ' ' + cols[1] + ':'
     m = canmsg.CanMsg()
     m.sent = cols[3] == 'S'
     if m.sent:
@@ -28,7 +30,6 @@ def parse(cols):
         m.extended = False
     m.id = int(cols[5], 16)
     m.data = [int(x, 16) for x in cols[-1].split(', ')]
-    t = '{0:8.3f}'.format(T)
     return t, cols[3], cols[4], m
 
 def main(f):

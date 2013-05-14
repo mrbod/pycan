@@ -249,11 +249,12 @@ class KvaserOptions(optparse.OptionParser):
                 dest='channel', type='int', default=0,
                 help='desired channel',
                 metavar='CHANNEL')
+        x = [y[0] for y in bitrates.values()]
         self.add_option(
                 '-b', '--bitrate',
                 dest='bitrate', type='string', default=canBITRATE_125K,
                 action='callback', callback=bitrate_callback,
-                help='desired bitrate (%s)' % ', '.join(bitrates.values()),
+                help='desired bitrate (%s)' % ', '.join(x),
                 metavar='BITRATE')
         self.add_option(
                 '-s', '--silent',
