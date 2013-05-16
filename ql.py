@@ -9,8 +9,6 @@ import numpy as np
 canmsg.format_set(canmsg.FORMAT_STCAN)
 
 def convert(f):
-    thetime = None
-    incremental = False
     def xxx(stream):
         for L in stream:
             try:
@@ -23,14 +21,17 @@ def convert(f):
     for i in range(len(messages) - 1):
         if messages[i].time > messages[i + 1].time:
             sequencial = False
-    if thetime is None:
-        thetime = m.time
-    elif m.time < thetime:
-        incremental = True
-        thetime += m.time
-        m.time = thetime
-    else:
-        m.time -= thetime
+    thetime = None
+    for m in messages:
+        if thetime is None:
+            if not sequencial:
+                thetime = 0.0
+                m.time = 0.0
+        else:
+            if not sequencial:
+                thetime += m.time
+                m.time -= thetime
+        yield m
 
 def qlpos(m):
     p = m.data[2]
@@ -137,7 +138,8 @@ def foo():
 
 if __name__ == '__main__':
     try:
-        main()
+        bah()
+        #main()
         #foo()
     except KeyboardInterrupt:
         pass

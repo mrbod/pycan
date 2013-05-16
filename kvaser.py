@@ -294,7 +294,7 @@ def main():
                 m.group = canmsg.GROUP_PIN
                 m.type = canmsg.TYPE_IN
                 m.addr = 0x0F
-                m.data = [0x00, 0x00]
+                m.data = [0x00, 0x00, 0xAA, 1]
                 self.write(m)
 
         def action_handler(self, c):
