@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from Tkinter import *
+import Tkinter as tk
+import tkMessageBox as mb
 import threading
 import time
 import Queue
@@ -7,90 +8,75 @@ import random
 import canchannel
 import canmsg
 
-class Ch(object):
-    def __init__(self):
-        self.q = Queue.Queue()
-        self.running = True
-        thread = threading.Thread(target=self.run)
-        thread.start()
+channels = ('kvaser', 'canchannel')
 
-    def close(self):
-        self.running = False
-
-    def run(self):
-        while self.running:
-            self.q.put(str(time.time()))
-            time.sleep(0.1 * random.random())
-
-    def read(self):
-        if not self.running:
-            sys.exit(0)
-        try:
-            return self.q.get(0)
-        except:
-            return None
-
-class App(object):
-    def __init__(self, channel):
-        self.root = Tk()
-        self.root.title('PyCAN')
-        # buttons
-        bf = Frame(self.root)
-        bf.pack(side=BOTTOM)
-        self.button = Button(bf, text="QUIT", fg="red", command=self.quit)
-        self.button.pack(side=LEFT)
-        p = Button(bf, text="Pause", command=self.auto_scroll)
-        p.pack(side=LEFT)
-        # text view
-        frame = Frame(self.root)
-        frame.pack(expand=True, fill="both")
-        self.iw = Text(frame)
-        self.iw.pack(side=LEFT, expand=False, fill="both")
-        self.text = Text(frame)
-        self.text.pack(side=LEFT, expand=True, fill="both")
-        scrbar = Scrollbar(frame)
-        scrbar.pack(side=RIGHT, fill=Y)
+class Logger(tk.Frame):
+    def __init__(self, master=None):
+        tk.Frame.__init__(self, master=master)
+        self.text = tk.Text(self)
+        self.text.pack(side=tk.LEFT, expand=True, fill="both")
+        scrbar = tk.Scrollbar(self)
+        scrbar.pack(side=tk.RIGHT, fill=tk.Y)
         scrbar.config(command=self.text.yview)
         self.text.config(yscrollcommand = scrbar.set)
-        self.auto_scroll = False
         self.row = 0
+        self.auto_scroll = tk.IntVar()
+        self.auto_scroll.set(1)
+
+    def info(self, row, m):
+        self.text.insert(tk.END, "{0}\n".format(str(m)))
+
+    def log(self, m):
+        self.row += 1
+        self.text.insert(tk.END, "{1:5d}: {0}\n".format(str(m), self.row))
+        if self.auto_scroll.get():
+            self.text.see(tk.END)
+
+class PyCan(tk.Tk):
+    def __init__(self, channel):
+        tk.Tk.__init__(self)
+        self.title('PyCAN')
+        # text view
+        self.logger = Logger(self)
+        self.logger.pack(expand=True, fill="both")
+        # buttons
+        bf = tk.Frame(self)
+        bf.pack(side=tk.BOTTOM)
+        self.button = tk.Button(bf, text="QUIT", fg="red", command=self.do_quit)
+        self.button.pack(side=tk.LEFT)
+        p = tk.Checkbutton(bf, text="Autoscroll"
+                , variable=self.logger.auto_scroll)
+        p.pack(side=tk.LEFT)
+        self.idfmt = tk.IntVar()
+        p = tk.Checkbutton(bf, text="StCAN"
+                , variable=self.idfmt
+                , onvalue=canmsg.FORMAT_STCAN, offvalue=canmsg.FORMAT_STD
+                , command=self.id_format)
+        p.pack(side=tk.LEFT)
+        self.idfmt.set(canmsg.FORMAT_STD)
         self.ch = channel
-        self.end = False
-        self.root.after(100, self.poll)
+        self.ch.logger = self.logger
+        self.after(100, self.poll)
 
-    def mainloop(self):
-        try:
-            self.root.mainloop()
-        finally:
-            self.end = True
-
-    def auto_scroll(self):
-        self.auto_scroll = not self.auto_scroll
-
-    def quit(self):
+    def id_format(self):
+        canmsg.format_set(self.idfmt.get())
+        
+    def do_quit(self):
+        if not mb.askyesno('Hehe', 'Sure?'):
+            return
         self.ch.close()
-        self.root.quit()
+        self.quit()
 
     def poll(self):
         m = self.ch.read()
         while m:
-            self.log(m)
+            self.logger.log(m)
             m = self.ch.read()
-        if not self.auto_scroll:
-            self.text.see(END)
-        if not self.end:
-            self.root.after(100, self.poll)
-
-    def info(self, row, m):
-        self.iw.insert(END, "{0}\n".format(str(m)))
-
-    def log(self, m):
-        self.row += 1
-        self.text.insert(END, "{1:5d}: {0}\n".format(str(m), self.row))
+        self.after(100, self.poll)
 
 def main():
     c = canchannel.CanChannel()
-    app = App(c)
+    app = PyCan(c)
     app.mainloop()
 
 if __name__ == '__main__':

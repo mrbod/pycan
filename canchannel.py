@@ -6,11 +6,26 @@ import Queue
 import random
 import canmsg
 
+class DefaultLogger(object):
+    def __init__(self):
+        self.lock = threading.Lock()
+
+    def info(self, row, x):
+        self.log(x)
+
+    def log(self, x):
+        self.lock.acquire()
+        sys.stdout.write(str(x) + '\n')
+        sys.stdout.flush()
+        self.lock.release()
+
 class CanChannel(object):
     def __init__(self, **kwargs):
+        self.logger = kwargs.pop('logger', None)
+        if self.logger is None:
+            self.logger = DefaultLogger()
+        self.channel = kwargs.pop('channel', self)
         super(CanChannel, self).__init__(**kwargs)
-        self.log_lock = threading.Lock()
-        self.logger = None
         self.starttime = 0
         self.starttime = self.gettime()
         self.read_cnt = 0
@@ -42,7 +57,7 @@ class CanChannel(object):
                 try:
                     m = self.write_queue.get(True, 1)
                     if self.running:
-                        self.do_write(m)
+                        self.channel.do_write(m)
                 except Queue.Empty:
                     pass
         except Exception, e:
@@ -55,7 +70,7 @@ class CanChannel(object):
         try:
             self.info(2, 'reader thread started')
             while self.running:
-                m = self.do_read()
+                m = self.channel.do_read()
                 if m and self.running:
                     self.read_queue.put(m)
         except Exception, e:
@@ -87,11 +102,11 @@ class CanChannel(object):
         self.info(4, 'close')
         self.running = False
         self.info(4, 'joining threads')
-        self.read_thread.join()
+        #self.read_thread.join()
         self.info(5, 'read thread joined')
-        self.write_thread.join()
+        #self.write_thread.join()
         self.info(5, 'write thread joined')
-        self.msg_handler_thread.join()
+        #self.msg_handler_thread.join()
         self.info(5, 'message thread joined')
 
     def gettime(self):
@@ -133,20 +148,10 @@ class CanChannel(object):
         self.msg_handler_queue.put(m)
 
     def info(self, row, x):
-        if self.logger == None:
-            self.log(x)
-        else:
-            self.logger.info(row, x)
+        self.logger.info(row, x)
 
     def log(self, x):
-        if self.logger == None:
-            self.log_lock.acquire()
-            sys.stdout.write(str(x))
-            sys.stdout.write('\n')
-            sys.stdout.flush()
-            self.log_lock.release()
-        else:
-            self.logger.log(x)
+        self.logger.log(x)
 
     def action_handler(self, key):
         if key == 'INIT':
@@ -163,6 +168,7 @@ def main():
     sys.stdout.write('Only emulated CAN message input is provided.\n')
     ch = CanChannel()
     try:
+        time.sleep(0.1)
         s = raw_input('Use curses interface? [y/n]')
         if s and (s[0] in 'yYjJ'):
             import interface
