@@ -138,8 +138,8 @@ def foo():
 
 if __name__ == '__main__':
     try:
-        bah()
-        #main()
+        #bah()
+        main()
         #foo()
     except KeyboardInterrupt:
         pass

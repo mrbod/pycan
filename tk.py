@@ -6,6 +6,7 @@ import time
 import Queue
 import random
 import canchannel
+import kvaser
 import canmsg
 
 channels = ('kvaser', 'canchannel')
@@ -42,10 +43,12 @@ class PyCan(tk.Tk):
         # buttons
         bf = tk.Frame(self)
         bf.pack(side=tk.BOTTOM)
+        b = tk.Button(bf, text="send", command=self.send)
+        b.pack(side=tk.LEFT)
         self.button = tk.Button(bf, text="QUIT", fg="red", command=self.do_quit)
         self.button.pack(side=tk.LEFT)
-        p = tk.Checkbutton(bf, text="Autoscroll"
-                , variable=self.logger.auto_scroll)
+        auto_scr = self.logger.auto_scroll
+        p = tk.Checkbutton(bf, text="Autoscroll" , variable=auto_scr)
         p.pack(side=tk.LEFT)
         self.idfmt = tk.IntVar()
         p = tk.Checkbutton(bf, text="StCAN"
@@ -58,12 +61,20 @@ class PyCan(tk.Tk):
         self.ch.logger = self.logger
         self.after(100, self.poll)
 
+    def send(self):
+        m = canmsg.CanMsg()
+        m.addr = 60
+        m.group = canmsg.GROUP_PIN
+        m.type = canmsg.TYPE_IN
+        m.data = [8,7,6,5,4,3,2,1]
+        self.ch.write(m)
+
     def id_format(self):
         canmsg.format_set(self.idfmt.get())
         
     def do_quit(self):
-        if not mb.askyesno('Hehe', 'Sure?'):
-            return
+        #if not mb.askyesno('Hehe', 'Sure?'):
+        #    return
         self.ch.close()
         self.quit()
 
@@ -75,7 +86,8 @@ class PyCan(tk.Tk):
         self.after(100, self.poll)
 
 def main():
-    c = canchannel.CanChannel()
+    #c = canchannel.CanChannel()
+    c = kvaser.KvaserCanChannel()
     app = PyCan(c)
     app.mainloop()
 
