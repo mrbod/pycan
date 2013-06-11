@@ -7,6 +7,7 @@ import time
 import canchannel
 import canmsg
 import optparse
+import platform
 
 canMSG_RTR = 0x0001      # Message is a remote request
 canMSG_STD = 0x0002      # Message has a standard ID
@@ -125,14 +126,16 @@ class KvaserException(Exception):
     pass
 
 class KvaserCanChannel(canchannel.CanChannel):
-    def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False):
+    def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False, **kwargs):
         self.canlib = None
+        self.gettime = self.gettime_linux
         if sys.platform == 'linux2':
             self.canlib = ctypes.CDLL('libcanlib.so')
         elif sys.platform == 'cygwin':
             self.canlib = ctypes.CDLL('canlib32.dll')
         elif sys.platform == 'win32':
             self.canlib = ctypes.windll.canlib32
+            self.gettime = self.gettime_windows
         else:
             s = 'Unknown platform: {0:s}'.format(sys.platform)
             raise KvaserException(s)
@@ -173,7 +176,7 @@ class KvaserCanChannel(canchannel.CanChannel):
                 s = ctypes.create_string_buffer(128)
                 self.canlib.canGetErrorText(res, s, 128)
                 raise KvaserException('canSetBusOutputControl=%d: %s' % (res, s.value))
-        super(KvaserCanChannel, self).__init__()
+        super(KvaserCanChannel, self).__init__(**kwargs)
 
     def set_baud(self, handle, baud):
         settings = bitrate_settings[baud]
@@ -183,10 +186,14 @@ class KvaserCanChannel(canchannel.CanChannel):
             self.canlib.canGetErrorText(res, s, 128)
             raise KvaserException('canSetBusParams=%d: %s' % (res, s.value))
 
-    def gettime(self):
+    def gettime_linux(self):
         time = ctypes.c_uint()
         self.canlib.canReadTimer(self.handle, ctypes.byref(time))
         return time.value / 1000.0
+
+    def gettime_windows(self):
+        x = self.canlib.canReadTimer(self.handle)
+        return x / 1000.0
 
     def __del__(self):
         if self.canlib != None:

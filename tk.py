@@ -34,7 +34,7 @@ class Logger(tk.Frame):
             self.text.see(tk.END)
 
 class PyCan(tk.Tk):
-    def __init__(self, channel):
+    def __init__(self, channel=0, channelclass=canchannel.CanChannel):
         tk.Tk.__init__(self)
         self.title('PyCAN')
         # text view
@@ -57,8 +57,9 @@ class PyCan(tk.Tk):
                 , command=self.id_format)
         p.pack(side=tk.LEFT)
         self.idfmt.set(canmsg.FORMAT_STD)
-        self.ch = channel
-        self.ch.logger = self.logger
+        # the CAN channel
+        self.ch = channelclass(channel, logger=self.logger)
+        # start poll
         self.after(100, self.poll)
 
     def send(self):
@@ -85,15 +86,18 @@ class PyCan(tk.Tk):
             m = self.ch.read()
         self.after(100, self.poll)
 
-def main():
+def main(ch):
     #c = canchannel.CanChannel()
-    c = kvaser.KvaserCanChannel()
-    app = PyCan(c)
+    app = PyCan(channel=ch, channelclass=kvaser.KvaserCanChannel)
     app.mainloop()
 
 if __name__ == '__main__':
     try:
-        main()
+        ch = int(sys.argv[1])
+    except:
+        ch = 0
+    try:
+        main(ch)
     except KeyboardInterrupt:
         pass
 
