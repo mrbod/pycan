@@ -1,6 +1,8 @@
 #!/usr/bin/env python
+import os
 import Tkinter as tk
-import tkMessageBox as mb
+import tkMessageBox
+import tkFileDialog
 import threading
 import time
 import Queue
@@ -23,20 +25,31 @@ class Logger(tk.Frame):
         self.row = 0
         self.auto_scroll = tk.IntVar()
         self.auto_scroll.set(1)
+        self.changed = False
+        self.scroll()
+
+    def save(self, filename):
+        self.info(None, 'Save: ' + filename)
+        self.changed = False
+
+    def scroll(self):
+        if self.auto_scroll.get():
+            self.text.see(tk.END)
+        self.after(300, self.scroll)
 
     def info(self, row, m):
         self.text.insert(tk.END, "{0}\n".format(str(m)))
 
     def log(self, m):
+        self.changed = True
         self.row += 1
         self.text.insert(tk.END, "{1:5d}: {0}\n".format(str(m), self.row))
-        if self.auto_scroll.get():
-            self.text.see(tk.END)
 
 class PyCan(tk.Tk):
-    def __init__(self, channel):
+    def __init__(self):
         tk.Tk.__init__(self)
         self.title('PyCAN')
+        self.menu()
         # text view
         self.logger = Logger(self)
         self.logger.pack(expand=True, fill="both")
@@ -45,8 +58,6 @@ class PyCan(tk.Tk):
         bf.pack(side=tk.BOTTOM)
         b = tk.Button(bf, text="send", command=self.send)
         b.pack(side=tk.LEFT)
-        self.button = tk.Button(bf, text="QUIT", fg="red", command=self.do_quit)
-        self.button.pack(side=tk.LEFT)
         auto_scr = self.logger.auto_scroll
         p = tk.Checkbutton(bf, text="Autoscroll" , variable=auto_scr)
         p.pack(side=tk.LEFT)
@@ -57,9 +68,34 @@ class PyCan(tk.Tk):
                 , command=self.id_format)
         p.pack(side=tk.LEFT)
         self.idfmt.set(canmsg.FORMAT_STD)
-        self.ch = channel
-        self.ch.logger = self.logger
-        self.after(100, self.poll)
+        self.channel_setup()
+        self.poll()
+
+    def channel_setup(self):
+        try:
+            channel = kvaser.KvaserCanChannel()
+        except:
+            channel = canchannel.CanChannel()
+        self.logger.info(None, str(channel))
+        self.logger.info(None, os.getcwd())
+        self.channel = channel
+        self.channel.logger = self.logger
+
+    def menu(self):
+        menu = tk.Menu(self)
+        self.config(menu=menu)
+        filemenu = tk.Menu(menu)
+        menu.add_cascade(label='File', underline=0, menu=filemenu)
+        filemenu.add_command(label='Save', underline=0,
+                accelerator='Ctrl-S', command=self.do_save)
+        self.bind('<Control-s>', self.do_save)
+        filemenu.add_command(label='Exit', underline=1,
+                accelerator='Ctrl-Q', command=self.do_quit)
+        self.bind('<Control-q>', self.do_quit)
+
+    def do_save(self):
+        fn = tkFileDialog.asksaveasfilename(initialdir=os.getcwd())
+        self.logger.save(fn)
 
     def send(self):
         m = canmsg.CanMsg()
@@ -67,7 +103,7 @@ class PyCan(tk.Tk):
         m.group = canmsg.GROUP_PIN
         m.type = canmsg.TYPE_IN
         m.data = [8,7,6,5,4,3,2,1]
-        self.ch.write(m)
+        self.channel.write(m)
 
     def id_format(self):
         canmsg.format_set(self.idfmt.get())
@@ -75,20 +111,19 @@ class PyCan(tk.Tk):
     def do_quit(self):
         #if not mb.askyesno('Hehe', 'Sure?'):
         #    return
-        self.ch.close()
+        self.channel.close()
         self.quit()
 
     def poll(self):
-        m = self.ch.read()
+        m = self.channel.read()
         while m:
             self.logger.log(m)
-            m = self.ch.read()
-        self.after(100, self.poll)
+            m = self.channel.read()
+        self.after(10, self.poll)
 
 def main():
-    #c = canchannel.CanChannel()
-    c = kvaser.KvaserCanChannel()
-    app = PyCan(c)
+    #c = kvaser.KvaserCanChannel()
+    app = PyCan()
     app.mainloop()
 
 if __name__ == '__main__':
