@@ -13,7 +13,7 @@ channel_types = [kvaser.KvaserCanChannel, canchannel.CanChannel]
 class Logger(ttk.Frame):
     def __init__(self, master=None):
         ttk.Frame.__init__(self, master=master)
-        self.text = tk.Text(self, state=tk.NORMAL)
+        self.text = tk.Listbox(self)
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
         scrbar = tk.Scrollbar(self)
         scrbar.pack(side=tk.RIGHT, fill=tk.Y)
