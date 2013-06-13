@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import Tkinter as tk
+import ttk
 import tkMessageBox
 import tkFileDialog
 import canchannel
@@ -9,9 +10,9 @@ import os
 
 channel_types = [kvaser.KvaserCanChannel, canchannel.CanChannel]
 
-class Logger(tk.Frame):
+class Logger(ttk.Frame):
     def __init__(self, master=None):
-        tk.Frame.__init__(self, master=master)
+        ttk.Frame.__init__(self, master=master)
         self.text = tk.Text(self, state=tk.NORMAL)
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
         scrbar = tk.Scrollbar(self)
@@ -32,7 +33,7 @@ class Logger(tk.Frame):
         self.text.bind('<Button-3>', self.do_popup_menu)
 
     def do_popup_menu(self, event):
-        self.popup_menu.post(event.x_root, event.y_root)
+        self.popup_menu.post(event.x_root - 5, event.y_root)
 
     def do_something(self):
         self.info(None, 'Did something')

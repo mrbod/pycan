@@ -133,6 +133,7 @@ class KvaserCanChannel(canchannel.CanChannel):
             self.canlib = ctypes.CDLL('libcanlib.so')
         elif sys.platform == 'cygwin':
             self.canlib = ctypes.CDLL('canlib32.dll')
+            self.gettime = self.gettime_windows
         elif sys.platform == 'win32':
             self.canlib = ctypes.windll.canlib32
             self.gettime = self.gettime_windows
@@ -144,7 +145,8 @@ class KvaserCanChannel(canchannel.CanChannel):
         if bitrate not in bitrates.keys():
             br = bitrate_search(bitrate)
             if br is None:
-                raise KvaserException('Unknown bitrate: {0}'.format(str(bitrate)))
+                s = 'Unknown bitrate: {0}'.format(str(bitrate))
+                raise KvaserException(s)
             bitrate = br
         self.bitrate = ctypes.c_int(bitrate)
         self.silent = silent
@@ -153,8 +155,11 @@ class KvaserCanChannel(canchannel.CanChannel):
         if self.handle < 0:
             s = ctypes.create_string_buffer(128)
             self.canlib.canGetErrorText(self.handle, s, 128)
-            raise KvaserException('canOpenChannel(%d, 0x%X=%d: %s' % (channel, self.flags.value, self.handle, s.value))
-        res = self.canlib.canSetBusParams(self.handle, *bitrate_settings[bitrate])
+            fmt = 'canOpenChannel(%d, 0x%X=%d: %s'
+            txt = fmt % (channel, self.flags.value, self.handle, s.value)
+            raise KvaserException(txt)
+        res = self.canlib.canSetBusParams(self.handle
+                , *bitrate_settings[bitrate])
         if res != canOK:
             s = ctypes.create_string_buffer(128)
             self.canlib.canGetErrorText(res, s, 128)
@@ -165,17 +170,21 @@ class KvaserCanChannel(canchannel.CanChannel):
             self.canlib.canGetErrorText(res, s, 128)
             raise KvaserException('canBusOn=%d: %s' % (res, s.value))
         if self.silent:
-            res = self.canlib.canSetBusOutputControl(self.handle, canDRIVER_SILENT)
+            res = self.canlib.canSetBusOutputControl(self.handle
+                    , canDRIVER_SILENT)
             if res != canOK:
                 s = ctypes.create_string_buffer(128)
                 self.canlib.canGetErrorText(res, s, 128)
-                raise KvaserException('canSetBusOutputControl=%d: %s' % (res, s.value))
+                fmt = 'canSetBusOutputControl=%d: %s'
+                raise KvaserException(fmt % (res, s.value))
         else:
-            res = self.canlib.canSetBusOutputControl(self.handle, canDRIVER_NORMAL)
+            res = self.canlib.canSetBusOutputControl(self.handle
+                    , canDRIVER_NORMAL)
             if res != canOK:
                 s = ctypes.create_string_buffer(128)
                 self.canlib.canGetErrorText(res, s, 128)
-                raise KvaserException('canSetBusOutputControl=%d: %s' % (res, s.value))
+                fmt = 'canSetBusOutputControl=%d: %s'
+                raise KvaserException(fmt % (res, s.value))
         super(KvaserCanChannel, self).__init__(**kwargs)
 
     def set_baud(self, handle, baud):
@@ -205,7 +214,8 @@ class KvaserCanChannel(canchannel.CanChannel):
         dlc = ctypes.c_int()
         flags = ctypes.c_int()
         T = ctypes.c_uint()
-        res = self.canlib.canRead(self.handle, ctypes.byref(id), data, ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(T))
+        res = self.canlib.canRead(self.handle, ctypes.byref(id), data
+                , ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(T))
         if res == canOK:
             #T = self.gettime()
             t = T.value / 1000.0
@@ -217,7 +227,8 @@ class KvaserCanChannel(canchannel.CanChannel):
                 ext = True
             else:
                 ext = False
-            m = canmsg.CanMsg(id=id.value, data=d, extended=ext, time=t, channel=self)
+            m = canmsg.CanMsg(id=id.value, data=d, extended=ext, time=t
+                    , channel=self)
             return m
         if res != canERR_NOMSG:
             s = ctypes.create_string_buffer(128)
@@ -250,7 +261,8 @@ class KvaserOptions(optparse.OptionParser):
         def bitrate_callback(option, optstr, value, parser):
             setattr(parser.values, option.dest, bitrate_search(value))
             if parser.values.bitrate == None:
-                raise canchannel.optparse.OptionValueError('unknown bitrate <%s>' % value)
+                fmt = 'unknown bitrate <%s>'
+                raise canchannel.optparse.OptionValueError(fmt % value)
         self.add_option(
                 '-c', '--channel',
                 dest='channel', type='int', default=0,
@@ -266,7 +278,7 @@ class KvaserOptions(optparse.OptionParser):
         self.add_option(
                 '-s', '--silent',
                 action='store_true', dest='silent', default=False,
-                help='if a channel is silent it does not participate in CAN traffic',
+                help='do not talk on the CAN bus',
                 metavar='SILENT')
 
 def parse_args():

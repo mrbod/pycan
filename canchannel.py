@@ -52,7 +52,6 @@ class CanChannel(object):
     
     def _writer(self):
         try:
-            self.info(3, 'writer thread started')
             while self.running:
                 try:
                     m = self.write_queue.get(True, 1)
@@ -64,11 +63,10 @@ class CanChannel(object):
             self.info(0, str(e) + '\n')
             sys.exit()
         finally:
-            self.info(3, 'writer thread exit')
+            self.running = False
 
     def _reader(self):
         try:
-            self.info(2, 'reader thread started')
             while self.running:
                 m = self.channel.do_read()
                 if m and self.running:
@@ -77,11 +75,10 @@ class CanChannel(object):
             self.info(0, str(e) + '\n')
             sys.exit()
         finally:
-            self.info(2, 'reader thread exit')
+            self.running = False
 
     def _message(self):
         try:
-            self.info(1, 'message thread started')
             while self.running:
                 try:
                     m = self.msg_handler_queue.get(True, 1)
@@ -93,21 +90,13 @@ class CanChannel(object):
             self.info(0, str(e) + '\n')
             sys.exit()
         finally:
-            self.info(1, 'message thread exit')
+            self.running = False
 
     def open(self):
         self.starttime = time.time()
 
     def close(self):
-        self.info(4, 'close')
         self.running = False
-        self.info(4, 'joining threads')
-        #self.read_thread.join()
-        self.info(5, 'read thread joined')
-        #self.write_thread.join()
-        self.info(5, 'write thread joined')
-        #self.msg_handler_thread.join()
-        self.info(5, 'message thread joined')
 
     def gettime(self):
         return time.time() - self.starttime
