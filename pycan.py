@@ -9,16 +9,18 @@ import kvaser
 import canmsg
 import os
 
-channel_types = [kvaser.KvaserCanChannel, canchannel.CanChannel]
+channel_types = [canchannel.CanChannel, kvaser.KvaserCanChannel, canchannel.CanChannel]
 
 class Logger(ttk.Frame):
     def __init__(self, master=None):
         ttk.Frame.__init__(self, master=master)
         self.messages = []
         self.font = tkFont.Font(family='monospace')
+        self.line_height = int(self.font.metrics('linespace'))
+        self.no_of_lines = 0
         self.text = tk.Text(self, font=self.font)
+        self.text.bind('<Configure>', self.handle_configure)
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
-        self.log(self.font.metrics('linespace'))
         scrbar = tk.Scrollbar(self)
         scrbar.pack(side=tk.RIGHT, fill=tk.Y)
         scrbar.config(command=self.scroll)
@@ -29,6 +31,9 @@ class Logger(ttk.Frame):
         self.changed = False
         self.create_menu()
         self.poll()
+
+    def handle_configure(self, event):
+        self.no_of_lines = event.height / self.line_height
 
     def create_menu(self):
         self.popup_menu = tk.Menu(self, tearoff=0)
@@ -48,20 +53,22 @@ class Logger(ttk.Frame):
         self.changed = False
 
     def poll(self):
-        if self.auto_scroll.get():
-            self.text.see(tk.END)
+        fmt = "{1:5d}: {0}\n"
+        count = len(self.messages)
+        start = count - self.no_of_lines
+        if count > self.no_of_lines:
+            count = self.no_of_lines
+        for i, m in enumerate(self.messages[start:start+count]):
+            self.text.insert(i, fmt.format(str(m), start + i))
         self.after(300, self.poll)
 
     def scroll(self, *args):
-        no_of_lines = self.text.cget('height')
-        h = self.text.winfo_height()
-        print h, no_of_lines, args
+        print self.no_of_lines, args
 
     def log(self, m):
         self.changed = True
         self.messages.append(m)
         #self.text.insert(tk.END, "{1:5d}: {0}\n".format(str(m), self.row))
-        self.text.insert(tk.END, str(m) + '\n')
 
 class PyCan(tk.Tk):
     def __init__(self, channel=0):
