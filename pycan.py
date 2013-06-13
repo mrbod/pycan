@@ -3,6 +3,7 @@ import Tkinter as tk
 import ttk
 import tkMessageBox
 import tkFileDialog
+import tkFont
 import canchannel
 import kvaser
 import canmsg
@@ -13,18 +14,21 @@ channel_types = [kvaser.KvaserCanChannel, canchannel.CanChannel]
 class Logger(ttk.Frame):
     def __init__(self, master=None):
         ttk.Frame.__init__(self, master=master)
-        self.text = tk.Listbox(self)
+        self.messages = []
+        self.font = tkFont.Font(family='monospace')
+        self.text = tk.Text(self, font=self.font)
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
+        self.log(self.font.metrics('linespace'))
         scrbar = tk.Scrollbar(self)
         scrbar.pack(side=tk.RIGHT, fill=tk.Y)
-        scrbar.config(command=self.text.yview)
+        scrbar.config(command=self.scroll)
         self.text.config(yscrollcommand = scrbar.set)
         self.row = 0
         self.auto_scroll = tk.IntVar()
         self.auto_scroll.set(1)
         self.changed = False
         self.create_menu()
-        self.scroll()
+        self.poll()
 
     def create_menu(self):
         self.popup_menu = tk.Menu(self, tearoff=0)
@@ -36,24 +40,28 @@ class Logger(ttk.Frame):
         self.popup_menu.post(event.x_root - 5, event.y_root)
 
     def do_something(self):
-        self.info(None, 'Did something')
+        self.log('Did something')
+        self.log(str(self.font.actual()))
 
     def save(self, filename):
-        self.info(None, 'Save: ' + filename)
+        self.log('Save: ' + filename)
         self.changed = False
 
-    def scroll(self):
+    def poll(self):
         if self.auto_scroll.get():
             self.text.see(tk.END)
-        self.after(300, self.scroll)
+        self.after(300, self.poll)
 
-    def info(self, row, m):
-        self.text.insert(tk.END, "{0}\n".format(str(m)))
+    def scroll(self, *args):
+        no_of_lines = self.text.cget('height')
+        h = self.text.winfo_height()
+        print h, no_of_lines, args
 
     def log(self, m):
         self.changed = True
-        self.row += 1
-        self.text.insert(tk.END, "{1:5d}: {0}\n".format(str(m), self.row))
+        self.messages.append(m)
+        #self.text.insert(tk.END, "{1:5d}: {0}\n".format(str(m), self.row))
+        self.text.insert(tk.END, str(m) + '\n')
 
 class PyCan(tk.Tk):
     def __init__(self, channel=0):
@@ -78,10 +86,10 @@ class PyCan(tk.Tk):
             except Exception as e:
                 fmt = 'Failed starting driver: {}: {}'
                 s = fmt.format(name, str(e)) 
-                self.logger.info(None, s)
+                self.logger.log(s)
         fmt = 'Using driver: {}'
         s = fmt.format(driver.__class__.__name__)
-        self.logger.info(None, s)
+        self.logger.log(s)
         self.driver = driver
 
     def create_menu(self):
