@@ -1,22 +1,18 @@
 #!/usr/bin/env python
-import os
 import Tkinter as tk
 import tkMessageBox
 import tkFileDialog
-import threading
-import time
-import Queue
-import random
 import canchannel
 import kvaser
 import canmsg
+import os
 
-channels = ('kvaser', 'canchannel')
+channel_types = [kvaser.KvaserCanChannel, canchannel.CanChannel]
 
 class Logger(tk.Frame):
     def __init__(self, master=None):
         tk.Frame.__init__(self, master=master)
-        self.text = tk.Text(self)
+        self.text = tk.Text(self, state=tk.DISABLED)
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
         scrbar = tk.Scrollbar(self)
         scrbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -26,7 +22,20 @@ class Logger(tk.Frame):
         self.auto_scroll = tk.IntVar()
         self.auto_scroll.set(1)
         self.changed = False
+        self.create_menu()
         self.scroll()
+
+    def create_menu(self):
+        self.popup_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_command(label='something'
+                , command=self.do_something)
+        self.text.bind('<Button-3>', self.do_popup_menu)
+
+    def do_popup_menu(self, event):
+        self.popup_menu.post(event.x_root, event.y_root)
+
+    def do_something(self):
+        self.info(None, 'Did something')
 
     def save(self, filename):
         self.info(None, 'Save: ' + filename)
@@ -49,51 +58,55 @@ class PyCan(tk.Tk):
     def __init__(self, channel=0):
         tk.Tk.__init__(self)
         self.channel = channel
+        self.idfmt = tk.IntVar()
+        self.idfmt.set(canmsg.FORMAT_STD)
         self.title('PyCAN')
-        self.menu()
-        # text view
         self.logger = Logger(self)
         self.logger.pack(expand=True, fill="both")
-        # buttons
-        bf = tk.Frame(self)
-        bf.pack(side=tk.BOTTOM)
-        b = tk.Button(bf, text="send", command=self.send)
-        b.pack(side=tk.LEFT)
-        auto_scr = self.logger.auto_scroll
-        p = tk.Checkbutton(bf, text="Autoscroll" , variable=auto_scr)
-        p.pack(side=tk.LEFT)
-        self.idfmt = tk.IntVar()
-        p = tk.Checkbutton(bf, text="StCAN"
-                , variable=self.idfmt
-                , onvalue=canmsg.FORMAT_STCAN, offvalue=canmsg.FORMAT_STD
-                , command=self.id_format)
-        p.pack(side=tk.LEFT)
-        self.idfmt.set(canmsg.FORMAT_STD)
         self.channel_setup()
+        self.create_menu()
         self.poll()
 
     def channel_setup(self):
-        try:
-            driver = kvaser.KvaserCanChannel(channel=self.channel, logger=self.logger)
-        except:
-            driver = canchannel.CanChannel(logger=self.logger)
-        self.logger.info(None, str(driver))
-        self.logger.info(None, os.getcwd())
+        ct = [object] + channel_types
+        for d in ct:
+            name = d.__name__
+            try:
+                driver = d(channel=self.channel, logger=self.logger)
+                break
+            except Exception as e:
+                fmt = 'Failed starting driver: {}: {}'
+                s = fmt.format(name, str(e)) 
+                self.logger.info(None, s)
+        fmt = 'Using driver: {}'
+        s = fmt.format(driver.__class__.__name__)
+        self.logger.info(None, s)
         self.driver = driver
 
-    def menu(self):
+    def create_menu(self):
         menu = tk.Menu(self)
         self.config(menu=menu)
-        filemenu = tk.Menu(menu)
-        menu.add_cascade(label='File', underline=0, menu=filemenu)
+        filemenu = tk.Menu(menu, tearoff=0)
         filemenu.add_command(label='Save', underline=0,
-                accelerator='Ctrl-S', command=self.do_save)
-        self.bind('<Control-s>', self.do_save)
+                accelerator='C-s', command=self.do_save)
+        self.bind_all('<Control-Key-s>', self.do_save)
         filemenu.add_command(label='Exit', underline=1,
-                accelerator='Ctrl-Q', command=self.do_quit)
-        self.bind('<Control-q>', self.do_quit)
+                accelerator='C-q', command=self.do_quit)
+        self.bind_all('<Control-Key-q>', self.do_quit)
+        menu.add_cascade(label='File', underline=0, menu=filemenu)
+        settingsmenu = tk.Menu(menu, tearoff=0)
+        settingsmenu.add_checkbutton(label='stcan format', underline=1
+                , variable=self.idfmt
+                , onvalue=canmsg.FORMAT_STCAN, offvalue=canmsg.FORMAT_STD
+                , command=self.id_format)
+        settingsmenu.add_checkbutton(label='autoscroll', underline=0
+                , variable=self.logger.auto_scroll)
+        menu.add_cascade(label='Settings', underline=0, menu=settingsmenu)
+        actionmenu = tk.Menu(menu)
+        actionmenu.add_command(label='Send', command=self.send)
+        menu.add_cascade(label='Action', underline=0, menu=actionmenu)
 
-    def do_save(self):
+    def do_save(self, *args):
         fn = tkFileDialog.asksaveasfilename(initialdir=os.getcwd())
         self.logger.save(fn)
 
@@ -108,7 +121,7 @@ class PyCan(tk.Tk):
     def id_format(self):
         canmsg.format_set(self.idfmt.get())
         
-    def do_quit(self):
+    def do_quit(self, *args):
         self.driver.close()
         self.quit()
 
