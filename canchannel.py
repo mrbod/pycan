@@ -21,8 +21,6 @@ class CanChannel(object):
         self.logger = kwargs.pop('logger', None)
         if self.logger is None:
             self.logger = DefaultLogger()
-        self.channel = kwargs.pop('channel', self)
-        super(CanChannel, self).__init__(**kwargs)
         self.starttime = 0
         self.starttime = self.gettime()
         self.read_cnt = 0
@@ -53,7 +51,7 @@ class CanChannel(object):
                 try:
                     m = self.write_queue.get(True, 1)
                     if self.running:
-                        self.channel.do_write(m)
+                        self.do_write(m)
                 except Queue.Empty:
                     pass
         except Exception, e:
@@ -65,7 +63,7 @@ class CanChannel(object):
     def _reader(self):
         try:
             while self.running:
-                m = self.channel.do_read()
+                m = self.do_read()
                 if m and self.running:
                     self.read_queue.put(m)
         except Exception, e:
