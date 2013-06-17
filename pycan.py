@@ -20,55 +20,88 @@ class Logger(ttk.Frame):
         self.no_of_lines = 0
         self.text = tk.Text(self, font=self.font)
         self.text.bind('<Configure>', self.handle_configure)
+        self.text.bind('<Button-4>', self.wheel_up)
+        self.text.bind('<Button-5>', self.wheel_down)
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
-        scrbar = tk.Scrollbar(self)
-        scrbar.pack(side=tk.RIGHT, fill=tk.Y)
-        scrbar.config(command=self.scroll)
-        self.text.config(yscrollcommand = scrbar.set)
+        self.scrbar = tk.Scrollbar(self)
+        self.scrbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.scrbar.config(command=self.scroll)
         self.row = 0
         self.auto_scroll = tk.IntVar()
         self.auto_scroll.set(1)
         self.changed = False
         self.create_menu()
         self.poll()
+        self.scrollbar_update()
+
+    def wheel_up(self, event):
+        self.scroll('scroll', '-5', 'units')
+
+    def wheel_down(self, event):
+        self.scroll('scroll', '5', 'units')
 
     def handle_configure(self, event):
         self.no_of_lines = event.height / self.line_height
 
     def create_menu(self):
         self.popup_menu = tk.Menu(self, tearoff=0)
-        self.popup_menu.add_command(label='something'
-                , command=self.do_something)
+        self.popup_menu.add_checkbutton(label='autoscroll'
+                , variable=self.auto_scroll)
         self.text.bind('<Button-3>', self.do_popup_menu)
 
     def do_popup_menu(self, event):
         self.popup_menu.post(event.x_root - 5, event.y_root)
-
-    def do_something(self):
-        self.log('Did something')
-        self.log(str(self.font.actual()))
 
     def save(self, filename):
         self.log('Save: ' + filename)
         self.changed = False
 
     def poll(self):
+        self.log('poll')
         fmt = "{1:5d}: {0}\n"
-        count = len(self.messages)
-        start = count - self.no_of_lines
-        if count > self.no_of_lines:
-            count = self.no_of_lines
-        for i, m in enumerate(self.messages[start:start+count]):
-            self.text.insert(i, fmt.format(str(m), start + i))
-        self.after(300, self.poll)
+        self.text.delete('1.0', tk.END)
+        cnt = self.count
+        if self.auto_scroll.get():
+            self.row = cnt - self.no_of_lines
+            if self.row < 0:
+                self.row = 0
+        start = self.row
+        if cnt > self.no_of_lines:
+            cnt = self.no_of_lines
+        for i, m in enumerate(self.messages[start:start+cnt]):
+            self.text.insert(tk.END, fmt.format(str(m), start + i))
+        self.after(50, self.poll)
 
     def scroll(self, *args):
-        print self.no_of_lines, args
+        print args
+        if args[0] == 'scroll':
+            d = int(args[1])
+            if args[2] == 'pages':
+                self.row += d * self.no_of_lines
+            else:
+                self.row += d
+        elif args[0] == 'moveto':
+            self.row = int(float(args[1]) * self.count)
+        if self.row < 0:
+            self.row = 0
+        elif self.row > self.count:
+            self.row = self.count
+        self.scrollbar_update()
+
+    def scrollbar_update(self):
+        if self.count <= self.no_of_lines:
+            a = 0.0
+            b = 1.0
+        else:
+            a = 1.0 * self.row / self.count
+            b = a + float(self.no_of_lines) / float(self.count)
+        self.scrbar.set(a, b)
+        self.after(100, self.scrollbar_update)
 
     def log(self, m):
         self.changed = True
         self.messages.append(m)
-        #self.text.insert(tk.END, "{1:5d}: {0}\n".format(str(m), self.row))
+        self.count = len(self.messages)
 
 class PyCan(tk.Tk):
     def __init__(self, channel=0):
@@ -84,7 +117,7 @@ class PyCan(tk.Tk):
         self.poll()
 
     def channel_setup(self):
-        ct = [object] + channel_types
+        ct = channel_types
         for d in ct:
             name = d.__name__
             try:

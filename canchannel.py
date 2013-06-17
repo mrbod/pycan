@@ -10,9 +10,6 @@ class DefaultLogger(object):
     def __init__(self):
         self.lock = threading.Lock()
 
-    def info(self, row, x):
-        self.log(x)
-
     def log(self, x):
         self.lock.acquire()
         sys.stdout.write(str(x) + '\n')
@@ -60,7 +57,7 @@ class CanChannel(object):
                 except Queue.Empty:
                     pass
         except Exception, e:
-            self.info(0, str(e) + '\n')
+            self.log(str(e) + '\n')
             sys.exit()
         finally:
             self.running = False
@@ -72,7 +69,7 @@ class CanChannel(object):
                 if m and self.running:
                     self.read_queue.put(m)
         except Exception, e:
-            self.info(0, str(e) + '\n')
+            self.log(str(e) + '\n')
             sys.exit()
         finally:
             self.running = False
@@ -87,7 +84,7 @@ class CanChannel(object):
                 except Queue.Empty:
                     pass
         except Exception, e:
-            self.info(0, str(e) + '\n')
+            self.log(str(e) + '\n')
             sys.exit()
         finally:
             self.running = False
@@ -135,9 +132,6 @@ class CanChannel(object):
         m.time = self.gettime()
         self.write_queue.put(m)
         self.msg_handler_queue.put(m)
-
-    def info(self, row, x):
-        self.logger.info(row, x)
 
     def log(self, x):
         self.logger.log(x)
