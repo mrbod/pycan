@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import re
 import Tkinter as tk
 import ttk
 import tkMessageBox
@@ -9,13 +10,9 @@ import kvaser
 import canmsg
 import os
 
-channel_types = ((canchannel.CanChannel, (0,))
-        , (kvaser.KvaserCanChannel, (0, 1)))
-
 class Logger(ttk.Frame):
     def __init__(self, master=None):
         ttk.Frame.__init__(self, master=master)
-        self.fmt = "{1:5d}: {0}\n"
         self.messages = []
         self.count = len(self.messages)
         self.font = tkFont.Font(family='monospace')
@@ -29,6 +26,7 @@ class Logger(ttk.Frame):
         self.text.bind('<Button-4>', self.wheel_up)
         self.text.bind('<Button-5>', self.wheel_down)
         self.text.bind('<KeyPress>', self.handle_keypress)
+        self.text.tag_config('red', background='red')
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
         self.scrbar = tk.Scrollbar(self)
         self.scrbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -39,11 +37,15 @@ class Logger(ttk.Frame):
         self.auto_scroll.set(1)
         self.idfmt = tk.IntVar()
         self.idfmt.set(canmsg.FORMAT_STD)
+        self.fmt = '{1:5d}: ' + canmsg.formats[self.idfmt.get()] + '\n'
         self.saved_at_row = None
         self.create_menu()
         self.poll()
         self.scrollbar_update()
 
+    def id_format(self):
+        self.fmt = '{1:5d}: ' + canmsg.formats[self.idfmt.get()] + '\n'
+        
     def filter(self, canid):
         pass
 
@@ -58,15 +60,28 @@ class Logger(ttk.Frame):
 
     def create_menu(self):
         self.popup_menu = tk.Menu(self, tearoff=0)
-        self.popup_menu.add_checkbutton(label='autoscroll'
+        self.popup_menu.add_checkbutton(label='autoscroll', underline=0
                 , variable=self.auto_scroll)
+        self.popup_menu.add_checkbutton(label='stcan format', underline=0
+                , variable=self.idfmt
+                , onvalue=canmsg.FORMAT_STCAN, offvalue=canmsg.FORMAT_STD
+                , command=self.id_format)
 
     def do_popup_menu(self, event):
         self.popup_menu.post(event.x_root - 5, event.y_root)
 
     def save(self, filename):
-        self.log('Save: ' + filename)
-        self.saved_at_row = self.row
+        try:
+            with open(filename, 'w') as f:
+                for i, m in enumerate(self.messages):
+                    s = self.fmt.format(m, i)
+                    f.write(s)
+                    if (i % 100) == 0:
+                        #self.update()
+                        pass
+                    self.saved_at_row = i
+        except Exception as e:
+            tkMessageBox.showerror('File save error', str(e))
 
     def poll(self):
         self.count = len(self.messages)
@@ -74,13 +89,21 @@ class Logger(ttk.Frame):
             self.row = self.count - self.no_of_lines
             if self.row < 0:
                 self.row = 0
-        if (self.row != self.last_poll_row) or (self.count < self.no_of_lines):
+        redraw = ((self.row != self.last_poll_row)
+                or (self.count < self.no_of_lines)
+                or ((self.row + self.no_of_lines > self.count)))
+        if redraw:
             self.last_poll_row = self.row
             self.text.delete('1.0', tk.END)
             start = self.row
-            for i, m in enumerate(self.messages[start:start+self.no_of_lines]):
-                s = self.fmt.format(str(m), start + i)
-                self.text.insert(tk.END, s)
+            end = start + self.no_of_lines
+            msgs = self.messages[start:end]
+            for i, m in enumerate(msgs):
+                s = self.fmt.format(m, start + i)
+                if (m.dlc == 2):
+                    self.text.insert(tk.END, s, 'red')
+                else:
+                    self.text.insert(tk.END, s)
         self.after(50, self.poll)
 
     def handle_keypress(self, e):
@@ -131,28 +154,16 @@ class Logger(ttk.Frame):
 class LoggerWindow(tk.Toplevel):
     def __init__(self, channel):
         tk.Toplevel.__init__(self)
-        self.channel = channel
         self.logger = Logger(self)
         self.logger.pack(expand=True, fill="both")
         self.bind('<KeyPress>', self.logger.handle_keypress)
-        self.driver = canchannel.CanChannel(logger=self.logger)
+        try:
+            self.driver = channel(logger=self.logger)
+        except:
+            self.destroy()
+            raise
         self.create_menu()
         self.poll()
-
-#    def channel_setup(self):
-#        ct = channel_types
-#        for d in ct:
-#            name = d.__name__
-#            try:
-#                self.driver = d(channel=self.channel, logger=self.logger)
-#                break
-#            except Exception as e:
-#                fmt = 'Failed starting driver: {}: {}'
-#                s = fmt.format(name, str(e)) 
-#                self.logger.log(s)
-#        fmt = 'Using driver: {}'
-#        s = fmt.format(self.driver.__class__.__name__)
-#        self.logger.log(s)
 
     def create_menu(self):
         menu = tk.Menu(self)
@@ -165,14 +176,8 @@ class LoggerWindow(tk.Toplevel):
                 accelerator='C-q', command=self.do_quit)
         self.bind_all('<Control-Key-q>', self.do_quit)
         menu.add_cascade(label='File', underline=0, menu=filemenu)
-        settingsmenu = tk.Menu(menu, tearoff=0)
-        settingsmenu.add_checkbutton(label='stcan format', underline=1
-                , variable=self.logger.idfmt
-                , onvalue=canmsg.FORMAT_STCAN, offvalue=canmsg.FORMAT_STD
-                , command=self.id_format)
-        settingsmenu.add_checkbutton(label='autoscroll', underline=0
-                , variable=self.logger.auto_scroll)
-        menu.add_cascade(label='Settings', underline=0, menu=settingsmenu)
+        menu.add_cascade(label='Logger', underline=0
+                , menu=self.logger.popup_menu)
         actionmenu = tk.Menu(menu)
         actionmenu.add_command(label='Send', command=self.send)
         menu.add_cascade(label='Action', underline=0, menu=actionmenu)
@@ -189,9 +194,6 @@ class LoggerWindow(tk.Toplevel):
         m.data = [8,7,6,5,4,3,2,1]
         self.driver.write(m)
 
-    def id_format(self):
-        canmsg.format_set(self.logger.idfmt.get())
-        
     def do_quit(self, *args):
         self.driver.close()
         self.quit()
@@ -199,9 +201,12 @@ class LoggerWindow(tk.Toplevel):
     def poll(self):
         m = self.driver.read()
         while m:
-            self.logger.log(m)
+            #self.logger.log(m)
             m = self.driver.read()
         self.after(10, self.poll)
+
+channel_types = {'Simulated': (canchannel.CanChannel, (0,))
+        , 'Kvaser': (kvaser.KvaserCanChannel, (0, 1))}
 
 class PyCan(tk.Tk):
     def __init__(self, channel=0):
@@ -209,17 +214,34 @@ class PyCan(tk.Tk):
         self.title('PyCAN')
         self.driver_frame = ttk.Frame(self)
         self.driver_frame.pack()
-        self.driver_list = ttk.Treeview(self.driver_frame#, columns=['chno']
+        self.driver_list = ttk.Treeview(self.driver_frame
                 , selectmode='browse')
         self.driver_list.heading('#0', text='Driver')
-        #self.driver_list.heading('chno', text='Channel')
         self.driver_list.pack()
-        for d, cs in channel_types:
-            n = d.__name__
-            iid = self.driver_list.insert('', index='end', text=n)
-            for c in cs:
-                self.driver_list.insert(iid, index='end', text=str(c))
-        self.lw = LoggerWindow(channel)
+        keys = channel_types.keys()
+        keys.sort()
+        for k in keys:
+            (cls, chns) = channel_types[k]
+            self.driver_list.insert('', index='end', text=k, iid=k)
+            for c in chns:
+                sc = str(c)
+                ciid = '{}_{}'.format(k, sc)
+                self.driver_list.insert(k, index='end', text=sc, iid=ciid
+                        , tags='channel')
+        self.driver_list.tag_bind('channel', '<<TreeviewOpen>>', self.do_open)
+        self.driver_list.tag_bind('channel', '<<TreeviewClose>>', self.do_open)
+
+    def do_open(self, *args):
+        iid = self.driver_list.focus()
+        parent = self.driver_list.parent(iid)
+        r = parent + r'_(\d+)'
+        channel = int(re.match(r, iid).group(1))
+        try:
+            driver_cls = channel_types[parent][0]
+            LoggerWindow(driver_cls)
+        except Exception as e:
+            title = 'Failed to open {} {}'.format(parent, channel)
+            tkMessageBox.showerror(title, str(e))
 
 def main(channel):
     app = PyCan(channel)

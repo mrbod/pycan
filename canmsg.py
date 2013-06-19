@@ -5,7 +5,7 @@ class CanMsgException(Exception):
     pass
 
 STCAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
-STCAN_TYPE = ('OUT', 'IN', 'UD2', 'UD3', 'UD4', 'MON', 'UD6', 'UD7')
+STCAN_TYPE = ('OUT', 'IN', '???', '???', '???', 'MON', '???', '???')
 GROUP_POUT = 0
 GROUP_PIN = 1
 GROUP_SEC = 2

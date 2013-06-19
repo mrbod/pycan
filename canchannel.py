@@ -100,7 +100,8 @@ class CanChannel(object):
         time.sleep(self._dT)
         self._dT = 0.5 * random.random()
         m = canmsg.CanMsg()
-        if random.randint(0,1) == 0:
+        no_extended = True
+        if no_extended or (random.randint(0,1) == 0):
             m.id = random.randint(0, 2**11 - 1)
         else:
             m.id = random.randint(0, 2**29 - 1)
