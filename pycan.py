@@ -135,8 +135,8 @@ class Logger(ttk.Frame):
             self.row = int(float(args[1]) * self.count)
         if self.row < 0:
             self.row = 0
-        elif self.row > self.count:
-            self.row = self.count
+        elif self.row > (self.count - self.no_of_lines):
+            self.row = self.count - self.no_of_lines
         self.scrollbar_update()
 
     def scrollbar_update(self):
