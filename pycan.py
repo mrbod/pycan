@@ -108,7 +108,8 @@ class Logger(ttk.Frame):
 
     def handle_keypress(self, e):
         if e.keysym == 'End':
-            self.scroll('moveto', '1.0')
+            x = float(self.count - self.no_of_lines) / self.count
+            self.scroll('moveto', str(x))
         elif e.keysym == 'Home':
             self.scroll('moveto', '0.0')
         elif e.keysym == 'Prior':
