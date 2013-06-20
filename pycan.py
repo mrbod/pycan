@@ -15,7 +15,10 @@ class Logger(ttk.Frame):
         ttk.Frame.__init__(self, master=master)
         self.messages = []
         self.count = len(self.messages)
-        self.font = tkFont.Font(family='monospace')
+        if os.name == 'nt':
+            self.font = tkFont.Font(family='Courier')
+        else:
+            self.font = tkFont.Font(family='monospace')
         self.line_height = int(self.font.metrics('linespace'))
         self.no_of_lines = 0
         self.text = tk.Text(self, font=self.font)
