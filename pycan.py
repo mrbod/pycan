@@ -10,6 +10,37 @@ import kvaser
 import canmsg
 import os
 
+class Dialog(tk.Toplevel):
+    def __init__(self, master):
+        tk.Toplevel.__init__(self, master=master)
+        self.result = None
+        self.mask = ''
+        self.id = ''
+        self.transient(master)
+        f = ttk.Frame(self)
+        ttk.Label(f, text='Mask').grid(row=0, column=0)
+        ttk.Label(f, text='ID').grid(row=1, column=0)
+        self.emask = ttk.Entry(f)
+        self.emask.grid(row=0, column=1)
+        self.eid = ttk.Entry(f)
+        self.eid.grid(row=1, column=1)
+        f.pack(padx=5, pady=5)
+        f = ttk.Frame(self)
+        b = ttk.Button(f, text='OK', command=self.ok)
+        b.pack(side=tk.LEFT, padx=5, pady=5)
+        b = ttk.Button(f, text='Cancel', command=self.cancel)
+        b.pack(side=tk.LEFT, padx=5, pady=5)
+        f.pack()
+
+    def ok(self, *args):
+        self.mask = int(self.emask.get(), 0)
+        self.id = int(self.eid.get(), 0)
+        self.result = True
+        self.destroy()
+
+    def cancel(self, *args):
+        self.destroy()
+
 class Logger(ttk.Frame):
     def __init__(self, master=None):
         ttk.Frame.__init__(self, master=master)
@@ -38,9 +69,11 @@ class Logger(ttk.Frame):
         self.last_poll_row = -1
         self.auto_scroll = tk.IntVar()
         self.auto_scroll.set(1)
+        self.time_format = tk.IntVar()
+        self.time_format.set(0)
         self.idfmt = tk.IntVar()
         self.idfmt.set(canmsg.FORMAT_STD)
-        self.fmt = '{1:5d}: ' + canmsg.formats[self.idfmt.get()] + '\n'
+        self.id_format()
         self.saved_at_row = None
         self.create_menu()
         self.poll()
@@ -49,8 +82,8 @@ class Logger(ttk.Frame):
     def id_format(self):
         self.fmt = '{1:5d}: ' + canmsg.formats[self.idfmt.get()] + '\n'
         
-    def filter(self, canid):
-        pass
+    def filter(self, m):
+        return m
 
     def wheel_up(self, event):
         self.scroll('scroll', '-5', 'units')
@@ -61,14 +94,54 @@ class Logger(ttk.Frame):
     def handle_configure(self, event):
         self.no_of_lines = event.height / self.line_height
 
+    def filter_mask_id(self):
+        d = Dialog(self)
+        self.wait_window(d)
+        if d.result:
+            print 'id', d.id
+            print 'mask', d.mask
+            def f(m):
+                if (m.id ^ d.id) & d.mask > 0:
+                    return None
+                return m
+            self.filter = f
+
+    def filter_stcan(self):
+        pass
+
+    def filter_free_form(self):
+        pass
+
     def create_menu(self):
         self.popup_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_checkbutton(label='relative time', underline=0
+                , variable=self.time_format)
         self.popup_menu.add_checkbutton(label='autoscroll', underline=0
                 , variable=self.auto_scroll)
         self.popup_menu.add_checkbutton(label='stcan format', underline=0
                 , variable=self.idfmt
                 , onvalue=canmsg.FORMAT_STCAN, offvalue=canmsg.FORMAT_STD
                 , command=self.id_format)
+        self.id_format_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_cascade(menu=self.id_format_menu, label='id number format')
+        self.id_format_value = tk.IntVar()
+        self.id_format_value.set(2)
+        self.id_format_menu.add_radiobutton(label='bin', value=0
+                , variable=self.id_format_value)
+        self.id_format_menu.add_radiobutton(label='dec', value=1
+                , variable=self.id_format_value)
+        self.id_format_menu.add_radiobutton(label='hex', value=2
+                , variable=self.id_format_value)
+        self.filter_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_cascade(menu=self.filter_menu, label='filter')
+        self.filter_menu.add_command(label='mask/id', underline=0
+                , command=self.filter_mask_id)
+        self.filter_menu.add_command(label='stcan', underline=0
+                , command=self.filter_stcan)
+        self.filter_menu.add_command(label='free form', underline=0
+                , command=self.filter_free_form)
+        self.color_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_cascade(menu=self.color_menu, label='color code')
 
     def do_popup_menu(self, event):
         self.popup_menu.post(event.x_root - 5, event.y_root)
@@ -153,7 +226,8 @@ class Logger(ttk.Frame):
         self.after(100, self.scrollbar_update)
 
     def log(self, m):
-        self.messages.append(m)
+        if self.filter(m):
+            self.messages.append(m)
 
 class LoggerWindow(tk.Toplevel):
     def __init__(self, channel):
@@ -199,6 +273,7 @@ class LoggerWindow(tk.Toplevel):
         self.driver.write(m)
 
     def do_quit(self, *args):
+        print 'do_quit'
         self.driver.close()
         self.quit()
 
@@ -260,4 +335,6 @@ if __name__ == '__main__':
         main(ch)
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        tkMessageBox.showerror('Exception', str(e))
 

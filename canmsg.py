@@ -161,10 +161,7 @@ class CanMsg(object):
 
     @property
     def sgroup(self):
-        try:
-            return STCAN_GROUP[self.group]
-        except:
-            return '**'
+        return STCAN_GROUP[self.group]
 
     @property
     def type(self):
@@ -176,10 +173,7 @@ class CanMsg(object):
 
     @property
     def stype(self):
-        try:
-            return STCAN_TYPE[self.type]
-        except:
-            return '**'
+        return STCAN_TYPE[self.type]
 
     @property
     def stcan(self):
