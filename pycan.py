@@ -4,11 +4,47 @@ import Tkinter as tk
 import ttk
 import tkMessageBox
 import tkFileDialog
+import tkColorChooser
 import tkFont
 import canchannel
 import kvaser
 import canmsg
 import os
+
+class IDMaskDialog(tk.Toplevel):
+    def __init__(self, master, *args, **kwargs):
+        t = kwargs.pop('title', '')
+        tk.Toplevel.__init__(self, master=master, *args, **kwargs)
+        self.title('Mask/ID')
+        self.result = None
+        self.mask = ''
+        self.id = ''
+        self.transient(master)
+        l = ttk.Label(self, text=t)
+        l.pack()
+        f = ttk.Frame(self)
+        ttk.Label(f, text='Mask').grid(row=0, column=0)
+        ttk.Label(f, text='ID').grid(row=1, column=0)
+        self.emask = ttk.Entry(f)
+        self.emask.grid(row=0, column=1)
+        self.eid = ttk.Entry(f)
+        self.eid.grid(row=1, column=1)
+        f.pack(padx=5, pady=5)
+        f = ttk.Frame(self)
+        b = ttk.Button(f, text='OK', command=self.ok)
+        b.pack(side=tk.LEFT, padx=5, pady=5)
+        b = ttk.Button(f, text='Cancel', command=self.cancel)
+        b.pack(side=tk.LEFT, padx=5, pady=5)
+        f.pack()
+
+    def ok(self, *args):
+        self.mask = int(self.emask.get(), 0)
+        self.id = int(self.eid.get(), 0)
+        self.result = True
+        self.destroy()
+
+    def cancel(self, *args):
+        self.destroy()
 
 class Logger(ttk.Frame):
     def __init__(self, master=None):
@@ -29,7 +65,6 @@ class Logger(ttk.Frame):
         self.text.bind('<Button-4>', self.wheel_up)
         self.text.bind('<Button-5>', self.wheel_down)
         self.text.bind('<KeyPress>', self.handle_keypress)
-        self.text.tag_config('red', background='red')
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
         self.scrbar = tk.Scrollbar(self)
         self.scrbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -38,10 +73,13 @@ class Logger(ttk.Frame):
         self.last_poll_row = -1
         self.auto_scroll = tk.IntVar()
         self.auto_scroll.set(1)
+        self.time_format = tk.IntVar()
+        self.time_format.set(0)
         self.idfmt = tk.IntVar()
         self.idfmt.set(canmsg.FORMAT_STD)
-        self.fmt = '{1:5d}: ' + canmsg.formats[self.idfmt.get()] + '\n'
+        self.id_format()
         self.saved_at_row = None
+        self.color_codes = []
         self.create_menu()
         self.poll()
         self.scrollbar_update()
@@ -49,8 +87,14 @@ class Logger(ttk.Frame):
     def id_format(self):
         self.fmt = '{1:5d}: ' + canmsg.formats[self.idfmt.get()] + '\n'
         
-    def filter(self, canid):
-        pass
+    def filter(self, m):
+        return m
+
+    def color_code(self, m):
+        for id, mask, cc in self.color_codes:
+            if (m.id ^ id) & mask == 0:
+                return cc
+        return None
 
     def wheel_up(self, event):
         self.scroll('scroll', '-5', 'units')
@@ -61,17 +105,70 @@ class Logger(ttk.Frame):
     def handle_configure(self, event):
         self.no_of_lines = event.height / self.line_height
 
+    def filter_mask_id(self):
+        print 'filter_mask_id'
+        try:
+            d = IDMaskDialog(self, title='Filter mask/id')
+        except Exception as e:
+            print str(e)
+        self.wait_window(d)
+        if d.result:
+            def f(m):
+                if (m.id ^ d.id) & d.mask > 0:
+                    return None
+                return m
+            self.filter = f
+
+    def filter_stcan(self):
+        pass
+
+    def filter_free_form(self):
+        pass
+
+    def color_mask_id(self):
+        print 'color_mask_id'
+        d = IDMaskDialog(self, title='Color mask/id')
+        self.wait_window(d)
+        if d.result:
+            t, s = tkColorChooser.askcolor(parent=self)
+            self.color_codes.append((d.id, d.mask, s))
+            self.text.tag_config(s, background=s)
+
     def create_menu(self):
         self.popup_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_checkbutton(label='relative time', underline=0
+                , variable=self.time_format)
         self.popup_menu.add_checkbutton(label='autoscroll', underline=0
                 , variable=self.auto_scroll)
         self.popup_menu.add_checkbutton(label='stcan format', underline=0
                 , variable=self.idfmt
                 , onvalue=canmsg.FORMAT_STCAN, offvalue=canmsg.FORMAT_STD
                 , command=self.id_format)
+        self.id_format_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_cascade(menu=self.id_format_menu, label='id number format')
+        self.id_format_value = tk.IntVar()
+        self.id_format_value.set(2)
+        self.id_format_menu.add_radiobutton(label='bin', value=0
+                , variable=self.id_format_value)
+        self.id_format_menu.add_radiobutton(label='dec', value=1
+                , variable=self.id_format_value)
+        self.id_format_menu.add_radiobutton(label='hex', value=2
+                , variable=self.id_format_value)
+        self.filter_menu = tk.Menu(self, tearoff=0)
+        self.popup_menu.add_cascade(menu=self.filter_menu, label='filter')
+        self.filter_menu.add_command(label='mask/id', underline=0
+                , command=self.filter_mask_id)
+        #self.filter_menu.add_command(label='stcan', underline=0
+        #        , command=self.filter_stcan)
+        #self.filter_menu.add_command(label='free form', underline=0
+        #        , command=self.filter_free_form)
+        self.color_menu = tk.Menu(self, tearoff=0)
+        self.color_menu.add_command(label='mask/id', underline=0
+                , command=self.color_mask_id)
+        self.popup_menu.add_cascade(menu=self.color_menu, label='color code')
 
     def do_popup_menu(self, event):
-        self.popup_menu.post(event.x_root - 5, event.y_root)
+        self.popup_menu.post(event.x_root - 10, event.y_root)
 
     def save(self, filename):
         try:
@@ -103,15 +200,16 @@ class Logger(ttk.Frame):
             msgs = self.messages[start:end]
             for i, m in enumerate(msgs):
                 s = self.fmt.format(m, start + i)
-                if (m.dlc == 2):
-                    self.text.insert(tk.END, s, 'red')
+                cc = self.color_code(m)
+                if cc:
+                    self.text.insert(tk.END, s, (cc,))
                 else:
                     self.text.insert(tk.END, s)
         self.after(50, self.poll)
 
     def handle_keypress(self, e):
         if e.keysym == 'End':
-            x = float(self.count - self.no_of_lines) / self.count
+            x = float(self.count - self.no_of_lines + 1) / self.count
             self.scroll('moveto', str(x))
         elif e.keysym == 'Home':
             self.scroll('moveto', '0.0')
@@ -153,7 +251,8 @@ class Logger(ttk.Frame):
         self.after(100, self.scrollbar_update)
 
     def log(self, m):
-        self.messages.append(m)
+        if self.filter(m):
+            self.messages.append(m)
 
 class LoggerWindow(tk.Toplevel):
     def __init__(self, channel):
@@ -178,7 +277,6 @@ class LoggerWindow(tk.Toplevel):
         self.bind_all('<Control-Key-s>', self.do_save)
         filemenu.add_command(label='Exit', underline=1,
                 accelerator='C-q', command=self.do_quit)
-        self.bind_all('<Control-Key-q>', self.do_quit)
         menu.add_cascade(label='File', underline=0, menu=filemenu)
         menu.add_cascade(label='Logger', underline=0
                 , menu=self.logger.popup_menu)
@@ -216,6 +314,7 @@ class PyCan(tk.Tk):
     def __init__(self, channel=0):
         tk.Tk.__init__(self)
         self.title('PyCAN')
+        self.bind_all('<Control-Key-q>', self.do_quit)
         self.driver_frame = ttk.Frame(self)
         self.driver_frame.pack()
         self.driver_list = ttk.Treeview(self.driver_frame
@@ -247,6 +346,9 @@ class PyCan(tk.Tk):
             title = 'Failed to open {} {}'.format(parent, channel)
             tkMessageBox.showerror(title, str(e))
 
+    def do_quit(self, *args):
+        self.quit()
+
 def main(channel):
     app = PyCan(channel)
     app.mainloop()
@@ -260,4 +362,6 @@ if __name__ == '__main__':
         main(ch)
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        tkMessageBox.showerror('Exception', str(e))
 
