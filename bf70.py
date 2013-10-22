@@ -9,7 +9,7 @@ def debug(str):
 
 def send(ch):
     m = canmsg.CanMsg()
-    m.id = 1 << 9
+    m.can_id = 1 << 9
     m.data = []
     ch.write(m)
 
@@ -29,7 +29,7 @@ def dump_stat():
 
 def dump_msg(m):
     fmt = '%8.3f %03X %d:%s\n'
-    s = fmt % (m.time, m.id, m.dlc(), m.data_str())
+    s = fmt % (m.time, m.can_id, m.dlc(), m.data_str())
     sys.stdout.write(s)
 
 show_sync = False

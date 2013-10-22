@@ -15,7 +15,7 @@ class CanDumpChannel(canchannel.CanChannel):
         o = self.linere.search(l)
         if o:
             m = self.msgclass()
-            m.id = int(o.group(1), 16)
+            m.can_id = int(o.group(1), 16)
             m.data = [int(x, 16) for x in o.group(3).split()]
             if m.dlc() != int(o.group(2)):
                 raise Exception('DLC <-> data missmatch')

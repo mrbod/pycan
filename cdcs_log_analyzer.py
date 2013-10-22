@@ -55,9 +55,9 @@ class Foo(object):
             m = self.parse(l)
             if m:
                 self.msgs.append(m)
-                if m.id not in self.ids:
-                    self.ids[m.id] = []
-                self.ids[m.id].append(m)
+                if m.can_id not in self.ids:
+                    self.ids[m.can_id] = []
+                self.ids[m.can_id].append(m)
                 self.status(str(f))
         s = '\r{0} has {1} messages                                \n'
         out(s.format(str(f), len(self.msgs) - start))
@@ -99,7 +99,7 @@ def parse(line):
         m.extended = True
     else:
         m.extended = False
-    m.id = int(cols[5], 16)
+    m.can_id = int(cols[5], 16)
     m.data = [int(x, 16) for x in cols[-1].split(', ')]
     return m
 

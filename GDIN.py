@@ -15,12 +15,12 @@ class GDIN(stcan_master.StCanMaster):
     def write_text(self, txt, row=0):
         id = (canmsg.GROUP_SEC << 9) | (self.address << 3) | canmsg.TYPE_OUT
         m = canmsg.CanMsg()
-        m.id = id
+        m.can_id = id
         m.data = [0, 25, 0, 64*row, 0, 0]
         self.send(m)
         for i in range(0, len(txt), 2):
             m = canmsg.CanMsg()
-            m.id = id
+            m.can_id = id
             m.data = [0, 25, 0, 127, 0, 0]
             m.data[4] = ord(txt[i])
             try:

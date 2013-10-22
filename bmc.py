@@ -45,9 +45,9 @@ class BMCCAN(kvaser.KvaserCanChannel):
             #self.old_cnt = 0
             #self.dump_msg(m)
         self.dump_msg(m)
-        if m.id == 0x01:
+        if m.can_id == 0x01:
             self.sendpos = False
-        elif m.id == 0x05:
+        elif m.can_id == 0x05:
             self.pos.data[2:] = m.data[2:]
 
     def exit_handler(self):
@@ -55,7 +55,7 @@ class BMCCAN(kvaser.KvaserCanChannel):
 
     def dump_msg(self, m):
         fmt = '{0:8.3f} {1:03X} {2:d}:{3:s}\n'
-        s = fmt.format(m.time, m.id, m.dlc(), m.data_str())
+        s = fmt.format(m.time, m.can_id, m.dlc(), m.data_str())
         if m.sent:
             sys.stdout.write('W ' + s)
         else:

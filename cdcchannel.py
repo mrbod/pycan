@@ -73,7 +73,7 @@ class CDCChannel(canchannel.CanChannel):
             else:
                 D = []
             m = CDCMsg()
-            m.id = ID
+            m.can_id = ID
             m.extended = E
             m.time = self.gettime()
             m.data = D
@@ -102,7 +102,7 @@ class CDCChannel(canchannel.CanChannel):
     def do_write(self, m):
         fmt = 'CAN {0:d} {1:X} {2:s} {3:d} {4:s}\n'
         args = (self.channel
-                , m.id
+                , m.can_id
                 , m.extended and 'E' or 'S'
                 , int(m.time * 1e6) % 0xFFFFFFFF
                 , ','.join([hex(x) for x in m.data]))
@@ -116,7 +116,7 @@ class CDCChannel(canchannel.CanChannel):
             self.info(6, 'CDC channel {0}'.format(self.channel))
         elif key == 's':
             m = CDCMsg()
-            m.id = 1
+            m.can_id = 1
             m.data = [1,2,3]
             m.extended = True
             self.write(m)

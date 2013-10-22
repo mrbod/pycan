@@ -9,7 +9,7 @@ class Monitor(kvaser.KvaserCanChannel):
 
     def action_handler(self, c):
         m = canmsg.CanMsg()
-        m.id = (canmsg.GROUP_PIN << 9) | canmsg.TYPE_MON
+        m.can_id = (canmsg.GROUP_PIN << 9) | canmsg.TYPE_MON
         m.data = [ord(c)]
         self.write(m)
 

@@ -63,12 +63,12 @@ class CanLogger(object):
         self.messages.append(m)
         if len(self.messages) > self.max_cnt:
             self.messages = self.messages[self.max_cnt//10:]
-        if self.id_slots.has_key(m.id):
-            e = self.id_slots[m.id]
+        if self.id_slots.has_key(m.can_id):
+            e = self.id_slots[m.can_id]
         else:
             e = SlotEntry(m)
-            self.id_slots[m.id] = e
-            self.ids.append(m.id)
+            self.id_slots[m.can_id] = e
+            self.ids.append(m.can_id)
             self.ids.sort()
         e.update(m)
         self.curline = self.curline + 1

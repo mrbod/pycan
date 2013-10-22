@@ -4,11 +4,11 @@ import sys
 import socketcan
 
 class CanOpenMsg(canmsg.CanMsg):
-    __mfmt = '{0.id:03X} {1:<20s} node:{2:02X} {0.time:9.3f} {0.dlc}: {0.data:<32s}'
+    __mfmt = '{0.can_id:03X} {1:<20s} node:{2:02X} {0.time:9.3f} {0.dlc}: {0.data:<32s}'
 
     def __str__(self):
-        fc = self.id & 0x780
-        node = self.id & 0x7F
+        fc = self.can_id & 0x780
+        node = self.can_id & 0x7F
         if fc == 0x00:
             cmd = self.data[0]
             node = self.data[1]
@@ -70,7 +70,7 @@ def parse_stdin():
         if o:
             t, id, dlc, data = o.groups()
             msg.data = [int(x, 16) for x in data.split()]
-            msg.id = int(id, 16)
+            msg.can_id = int(id, 16)
             msg.time = float(t)
             sys.stdout.write(str(msg))
             sys.stdout.write('\n')

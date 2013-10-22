@@ -74,9 +74,9 @@ class StCanMsg(canmsg.CanMsg):
     @property
     def addr(self):
         if self.extended:
-            return (self.id >> 3) & 0x00FFFFFF
+            return (self.can_id >> 3) & 0x00FFFFFF
         else:
-            return (self.id >> 3) & 0x3f
+            return (self.can_id >> 3) & 0x3f
 
     @property
     def saddr(self):
@@ -87,9 +87,9 @@ class StCanMsg(canmsg.CanMsg):
     @property
     def group(self):
         if self.extended:
-            return (self.id >> 27) & 0x3
+            return (self.can_id >> 27) & 0x3
         else:
-            return (self.id >> 9) & 0x3
+            return (self.can_id >> 9) & 0x3
 
     @property
     def sgroup(self):
@@ -100,7 +100,7 @@ class StCanMsg(canmsg.CanMsg):
 
     @property
     def type(self):
-        return self.id & 0x7
+        return self.can_id & 0x7
 
     @property
     def stype(self):
@@ -161,7 +161,7 @@ class StCanChannel(socketcan.SocketCanChannel):
                 if self.send_primary:
                     self.send_primary = False
                     m = StCanMsg()
-                    m.id = self.primary.id
+                    m.can_id = self.primary.can_id
                     m.data = self.primary.data
                     self.write(m)
                 elif len(self.message_queue) > 0:

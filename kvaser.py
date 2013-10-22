@@ -82,12 +82,12 @@ bitrates = {
         canBITRATE_83K: ('83K', '83000'),
         canBITRATE_10K: ('10K', '10000')
         }
+
 def bitrate_search(x):
     x = str(x)
     for k, v in bitrates.items():
-        for br in v:
-            if x == br:
-                return k
+        if x in v:
+            return k
     return None
 
 canWANT_EXCLUSIVE = 0x0008
@@ -122,25 +122,85 @@ bitrate_settings = {
         canBITRATE_10K: (10000, 11, 4, 1, 1, 0)
         }
 
+canCHANNELDATA_CHANNEL_CAP = 1
+canCHANNELDATA_TRANS_CAP = 2
+canCHANNELDATA_CHANNEL_FLAGS = 3
+canCHANNELDATA_CARD_TYPE = 4
+canCHANNELDATA_CARD_NUMBER = 5
+canCHANNELDATA_CHAN_NO_ON_CARD = 6
+canCHANNELDATA_CARD_SERIAL_NO = 7
+canCHANNELDATA_TRANS_SERIAL_NO = 8
+canCHANNELDATA_CARD_FIRMWARE_REV = 9
+canCHANNELDATA_CARD_HARDWARE_REV = 10
+canCHANNELDATA_CARD_UPC_NO = 11
+canCHANNELDATA_TRANS_UPC_NO = 12
+canCHANNELDATA_CHANNEL_NAME = 13
+canCHANNELDATA_DLL_FILE_VERSION = 14
+canCHANNELDATA_DLL_PRODUCT_VERSION = 15
+canCHANNELDATA_DLL_FILETYPE = 16
+canCHANNELDATA_TRANS_TYPE = 17
+canCHANNELDATA_DEVICE_PHYSICAL_POSITION = 18
+canCHANNELDATA_UI_NUMBER = 19
+canCHANNELDATA_TIMESYNC_ENABLED = 20
+canCHANNELDATA_DRIVER_FILE_VERSION = 21
+canCHANNELDATA_DRIVER_PRODUCT_VERSION = 22
+canCHANNELDATA_MFGNAME_UNICODE = 23
+canCHANNELDATA_MFGNAME_ASCII = 24
+canCHANNELDATA_DEVDESCR_UNICODE = 25
+canCHANNELDATA_DEVDESCR_ASCII = 26
+canCHANNELDATA_DRIVER_NAME = 27
+
 class KvaserException(Exception):
     pass
 
+canlib = None
+if sys.platform == 'linux2':
+    canlib = ctypes.CDLL('libcanlib.so')
+    def gettime_linux(handle):
+        time = ctypes.c_uint()
+        canlib.canReadTimer(handle, ctypes.byref(time))
+        return time.value / 1000.0
+    gettime = gettime_linux
+elif sys.platform == 'cygwin':
+    canlib = ctypes.CDLL('canlib32.dll')
+    def gettime_windows(handle):
+        x = canlib.canReadTimer(handle)
+        return x / 1000.0
+    gettime = gettime_windows
+elif sys.platform == 'win32':
+    canlib = ctypes.windll.canlib32
+    def gettime_windows(handle):
+        x = canlib.canReadTimer(handle)
+        return x / 1000.0
+    gettime = gettime_windows
+else:
+    s = 'Unknown platform: {0:s}'.format(sys.platform)
+    raise KvaserException(s)
+
+def list_channels():
+    '''Return a list of connected channels'''
+    cnt = ctypes.c_int()
+    stat = canlib.canGetNumberOfChannels(ctypes.byref(cnt))
+    if stat < 0:
+        raise KvaserException('canGetNumberOfChannels')
+    if (cnt.value < 0) or (cnt.value > 64):
+        raise KvaserException('strange number of channels %d' % cnt.value)
+    channels = []
+    for i in range(cnt.value):
+        name = ctypes.create_string_buffer(256)
+        stat = canlib.canGetChannelData(i, canCHANNELDATA_CHANNEL_NAME,
+                ctypes.byref(name), len(name))
+        if stat < 0:
+            stat = canlib.canGetChannelData(i, canCHANNELDATA_DEVDESCR_ASCII,
+                    ctypes.byref(name), len(name))
+            if stat < 0:
+                raise KvaserException('canGetChannelData')
+        channels.append(name.value)
+    return tuple(channels)
+
 class KvaserCanChannel(canchannel.CanChannel):
     def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False, **kwargs):
-        self.canlib = None
-        self.gettime = self.gettime_linux
-        if sys.platform == 'linux2':
-            self.canlib = ctypes.CDLL('libcanlib.so')
-        elif sys.platform == 'cygwin':
-            self.canlib = ctypes.CDLL('canlib32.dll')
-            self.gettime = self.gettime_windows
-        elif sys.platform == 'win32':
-            self.canlib = ctypes.windll.canlib32
-            self.gettime = self.gettime_windows
-        else:
-            s = 'Unknown platform: {0:s}'.format(sys.platform)
-            raise KvaserException(s)
-        self.canlib.canInitializeLibrary()
+        canlib.canInitializeLibrary()
         self.channel = ctypes.c_int(channel)
         if bitrate not in bitrates.keys():
             br = bitrate_search(bitrate)
@@ -151,62 +211,56 @@ class KvaserCanChannel(canchannel.CanChannel):
         self.bitrate = ctypes.c_int(bitrate)
         self.silent = silent
         self.flags = ctypes.c_int(canWANT_EXTENDED | canOPEN_ACCEPT_VIRTUAL)
-        self.handle = self.canlib.canOpenChannel(self.channel, self.flags)
+        self.handle = canlib.canOpenChannel(self.channel, self.flags)
         if self.handle < 0:
             s = ctypes.create_string_buffer(128)
-            self.canlib.canGetErrorText(self.handle, s, 128)
+            canlib.canGetErrorText(self.handle, s, 128)
             fmt = 'canOpenChannel(%d, 0x%X=%d: %s'
             txt = fmt % (channel, self.flags.value, self.handle, s.value)
             raise KvaserException(txt)
-        res = self.canlib.canSetBusParams(self.handle
+        res = canlib.canSetBusParams(self.handle
                 , *bitrate_settings[bitrate])
         if res != canOK:
             s = ctypes.create_string_buffer(128)
-            self.canlib.canGetErrorText(res, s, 128)
+            canlib.canGetErrorText(res, s, 128)
             raise KvaserException('canSetBusParams=%d: %s' % (res, s.value))
-        res = self.canlib.canBusOn(self.handle)
+        res = canlib.canBusOn(self.handle)
         if res != canOK:
             s = ctypes.create_string_buffer(128)
-            self.canlib.canGetErrorText(res, s, 128)
+            canlib.canGetErrorText(res, s, 128)
             raise KvaserException('canBusOn=%d: %s' % (res, s.value))
         if self.silent:
-            res = self.canlib.canSetBusOutputControl(self.handle
+            res = canlib.canSetBusOutputControl(self.handle
                     , canDRIVER_SILENT)
             if res != canOK:
                 s = ctypes.create_string_buffer(128)
-                self.canlib.canGetErrorText(res, s, 128)
+                canlib.canGetErrorText(res, s, 128)
                 fmt = 'canSetBusOutputControl=%d: %s'
                 raise KvaserException(fmt % (res, s.value))
         else:
-            res = self.canlib.canSetBusOutputControl(self.handle
+            res = canlib.canSetBusOutputControl(self.handle
                     , canDRIVER_NORMAL)
             if res != canOK:
                 s = ctypes.create_string_buffer(128)
-                self.canlib.canGetErrorText(res, s, 128)
+                canlib.canGetErrorText(res, s, 128)
                 fmt = 'canSetBusOutputControl=%d: %s'
                 raise KvaserException(fmt % (res, s.value))
         super(KvaserCanChannel, self).__init__(**kwargs)
 
+    def gettime(self):
+        return gettime(self.handle)
+
     def set_baud(self, handle, baud):
         settings = bitrate_settings[baud]
-        res = self.canlib.canSetBusParams(handle, *settings)
+        res = canlib.canSetBusParams(handle, *settings)
         if res != canOK:
             s = ctypes.create_string_buffer(128)
-            self.canlib.canGetErrorText(res, s, 128)
+            canlib.canGetErrorText(res, s, 128)
             raise KvaserException('canSetBusParams=%d: %s' % (res, s.value))
 
-    def gettime_linux(self):
-        time = ctypes.c_uint()
-        self.canlib.canReadTimer(self.handle, ctypes.byref(time))
-        return time.value / 1000.0
-
-    def gettime_windows(self):
-        x = self.canlib.canReadTimer(self.handle)
-        return x / 1000.0
-
     def __del__(self):
-        if self.canlib != None:
-            self.canlib.canClose(self.handle)
+        if canlib != None:
+            canlib.canClose(self.handle)
 
     def do_read(self):
         id = ctypes.c_int()
@@ -214,10 +268,9 @@ class KvaserCanChannel(canchannel.CanChannel):
         dlc = ctypes.c_int()
         flags = ctypes.c_int()
         T = ctypes.c_uint()
-        res = self.canlib.canRead(self.handle, ctypes.byref(id), data
+        res = canlib.canRead(self.handle, ctypes.byref(id), data
                 , ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(T))
         if res == canOK:
-            #T = self.gettime()
             t = T.value / 1000.0
             if flags.value & canMSG_ERROR_FRAME:
                 m = canmsg.CanMsg(error_frame=True)
@@ -227,12 +280,12 @@ class KvaserCanChannel(canchannel.CanChannel):
                 ext = True
             else:
                 ext = False
-            m = canmsg.CanMsg(id=id.value, data=d, extended=ext, time=t
+            msg = canmsg.CanMsg(can_id=id.value, data=d, extended=ext, time=t
                     , channel=self)
-            return m
+            return msg
         if res != canERR_NOMSG:
             s = ctypes.create_string_buffer(128)
-            self.canlib.canGetErrorText(res, s, 128)
+            canlib.canGetErrorText(res, s, 128)
             raise KvaserException('%d: %s' % (res, s.value))
         time.sleep(0.001)
         return None
@@ -246,7 +299,7 @@ class KvaserCanChannel(canchannel.CanChannel):
             flags = canMSG_STD
         while True:
             cnt += 1
-            res = self.canlib.canWrite(self.handle, msg.id, d, len(d), flags)
+            res = canlib.canWrite(self.handle, msg.can_id, d, len(d), flags)
             if res == 0:
                 msg.time = self.gettime()
                 break
@@ -307,7 +360,7 @@ def main():
                 if not self.pmode:
                     time.sleep(0.1)
                     continue
-                time.sleep(0.004)
+                time.sleep(0.4)
                 m = canmsg.CanMsg()
                 m.extended = self.ext
                 m.group = canmsg.GROUP_PIN
@@ -347,7 +400,7 @@ def main():
                 for i in range(16):
                     m = canmsg.CanMsg()
                     m.extended = self.ext
-                    m.id = 0x3F0
+                    m.can_id = 0x3F0
                     m.data = [i & 0xFF]
                     self.write(m)
                     time.sleep(.01)

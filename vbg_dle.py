@@ -49,8 +49,8 @@ class DLEHandler(object):
 
     def can2frame(self, m):
         frame = []
-        frame.append((m.id >> 8) & 0xFF)
-        frame.append(m.id & 0xFF)
+        frame.append((m.can_id >> 8) & 0xFF)
+        frame.append(m.can_id & 0xFF)
         frame += m.data
         return frame
 

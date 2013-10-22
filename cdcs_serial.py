@@ -28,7 +28,7 @@ def parse(cols):
         m.extended = True
     else:
         m.extended = False
-    m.id = int(cols[5], 16)
+    m.can_id = int(cols[5], 16)
     m.data = [int(x, 16) for x in cols[-1].split(', ')]
     return t, cols[3], cols[4], m
 
