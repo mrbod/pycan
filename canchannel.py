@@ -102,9 +102,9 @@ class CanChannel(object):
         m = canmsg.CanMsg()
         no_extended = True
         if no_extended or (random.randint(0,1) == 0):
-            m.id = random.randint(0, 2**11 - 1)
+            m.can_id = random.randint(0, 2**11 - 1)
         else:
-            m.id = random.randint(0, 2**29 - 1)
+            m.can_id = random.randint(0, 2**29 - 1)
             m.extended = True
         m.time = self.gettime()
         dlc = random.randint(0,8)

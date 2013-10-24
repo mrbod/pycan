@@ -58,17 +58,19 @@ class Data(bytearray):
         return ', '.join(t)
 
 class CanMsg(object):
-    __slots__ = ('id', 'xx_data', 'xx_extended', 'time', 'channel', 'sent', 'error_frame')
+    __slots__ = ('can_id', 'xx_data', 'xx_extended'
+            , 'time', 'channel', 'sent', 'error_frame')
 
-    def __init__(self, id=0, data=[], extended=False, time=0.0, channel=None, sent=False, error_frame=False):
+    def __init__(self, can_id=0, data=[], extended=False, time=0.0
+            , channel=None, sent=False, error_frame=False):
         super(CanMsg, self).__init__()
         if isinstance(data, type(self)):
-            self.id = data.id
+            self.can_id = data.can_id
             self.data = [b for b in data.data]
             self.extended = data.extended
             self.time = data.time
         else:
-            self.id = id
+            self.can_id = can_id
             self.data = data
             self.extended = extended
             self.time = time
@@ -87,8 +89,8 @@ class CanMsg(object):
     @property
     def sid(self):
         if self.xx_extended:
-            return '{0:08X}'.format(self.id)
-        return '{0:03X}'.format(self.id)
+            return '{0:08X}'.format(self.can_id)
+        return '{0:03X}'.format(self.can_id)
 
     @property
     def extended(self):
@@ -122,9 +124,9 @@ class CanMsg(object):
     @property
     def addr(self):
         if self.extended:
-            return (self.id >> 3) & 0x00FFFFFF
+            return (self.can_id >> 3) & 0x00FFFFFF
         else:
-            return (self.id >> 3) & 0x3f
+            return (self.can_id >> 3) & 0x3f
 
     @addr.setter
     def addr(self, a):
@@ -132,12 +134,12 @@ class CanMsg(object):
             if a > 0x00FFFFFF:
                 s = 'address(%d) out of range for 29-bit STCAN' % a
                 raise ValueError(s)
-            self.id = (self.group << 27) | (a << 3) | self.type
+            self.can_id = (self.group << 27) | (a << 3) | self.type
         else:
             if a > 0x03F:
                 s = 'address(%d) out of range for 11-bit STCAN' % a
                 raise ValueError(s)
-            self.id = (self.group << 9) | (a << 3) | self.type
+            self.can_id = (self.group << 9) | (a << 3) | self.type
 
     @property
     def saddr(self):
@@ -148,16 +150,16 @@ class CanMsg(object):
     @property
     def group(self):
         if self.extended:
-            return (self.id >> 27) & 0x3
+            return (self.can_id >> 27) & 0x3
         else:
-            return (self.id >> 9) & 0x3
+            return (self.can_id >> 9) & 0x3
 
     @group.setter
     def group(self, g):
         if self.extended:
-            self.id = (self.id & 0x07FFFFFF) | (g << 27)
+            self.can_id = (self.can_id & 0x07FFFFFF) | (g << 27)
         else:
-            self.id = (self.id & 0x1FF) | (g << 9)
+            self.can_id = (self.can_id & 0x1FF) | (g << 9)
 
     @property
     def sgroup(self):
@@ -165,11 +167,11 @@ class CanMsg(object):
 
     @property
     def type(self):
-        return self.id & 0x7
+        return self.can_id & 0x7
 
     @type.setter
     def type(self, t):
-        self.id = (self.id & 0xFFFFFFF8) | t
+        self.can_id = (self.can_id & 0xFFFFFFF8) | t
 
     @property
     def stype(self):
@@ -216,7 +218,7 @@ class CanMsg(object):
     def __eq__(self, other):
         if not other:
             return False
-        if self.id != other.id:
+        if self.can_id != other.can_id:
             return False
         if len(self.xx_data) != len(other.xx_data):
             return False
@@ -237,22 +239,22 @@ class CanMsg(object):
             raise CanMsgException('Not a frame: ' + s)
         channel = int(o.group(1))
         time = float(o.group(2).replace(',', '.'))
-        id = int(o.group(3), 16)
+        can_id = int(o.group(3), 16)
         d = o.group(4)
         if len(d) > 0:
             d = d.split(', ')
             data = [int(x, 16) for x in d]
         else:
             data = []
-        return cls(id=id, time=time, data=data, channel=channel)
+        return cls(can_id=can_id, time=time, data=data, channel=channel)
 
     @classmethod
     def from_magnus(cls, s):
         data = s.strip().split(None, 7)
-        id = int(data[5], 16)
+        can_id = int(data[5], 16)
         time = int(data[4]) / 1000.0
         data = [int(x, 16) for x in data[-1].split()]
-        return cls(id=id, time=time, data=data)
+        return cls(can_id=can_id, time=time, data=data)
 
 biscan_re = re.compile(r'(\d+)\s+\d+\s+(\d+,\d+)\s+\w+\s+([0-9A-Fa-f]+)\s+\d\s+\[\s*([^]]*)\]')
 

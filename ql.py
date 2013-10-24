@@ -42,7 +42,7 @@ def qlpos(m):
 
 def mgen():
     for m in convert(sys.stdin):
-        if m.id in (0x010, 0x211):
+        if m.can_id in (0x010, 0x211):
             yield m
 
 def bah():
@@ -60,11 +60,11 @@ def bah():
     actl, = plt.plot([], [])
     synl, = plt.plot([], [])
     def anim(m):
-        if m.id == actual_pos:
+        if m.can_id == actual_pos:
             actl.set_xdata(np.append(actl.get_xdata(), m.time))
             actl.set_ydata(np.append(actl.get_ydata(), qlpos(m)))
             return actl
-        elif m.id == set_pos:
+        elif m.can_id == set_pos:
             setl.set_xdata(np.append(setl.get_xdata(), m.time))
             setl.set_ydata(np.append(setl.get_ydata(), qlpos(m)))
             return setl
@@ -82,7 +82,7 @@ def main():
     pos = {}
     # convert
     for m in convert(sys.stdin):
-        l = idm.setdefault(m.id, [])
+        l = idm.setdefault(m.can_id, [])
         l.append(m)
     # extract positions
     for id in (set_pos, actual_pos):
@@ -120,17 +120,17 @@ def foo():
     mt = {}
     mp = {}
     for m in d:
-        dT = m.time - mt.get(m.id, 0)
+        dT = m.time - mt.get(m.can_id, 0)
         print '{0:.6f}'.format(dT),
-        mt[m.id] = m.time
+        mt[m.can_id] = m.time
         if abs(0.005 - dT) > 0.001:
             print '*',
         else:
             print ' ',
-        if m.id in (0x10, 0x211):
+        if m.can_id in (0x10, 0x211):
             p = qlpos(m)
-            dP = p - mp.get(m.id, 0)
-            mp[m.id] = p
+            dP = p - mp.get(m.can_id, 0)
+            mp[m.can_id] = p
             print '{0:5d} {1:9d}'.format(dP, p),
         else:
             print 15 * ' ',

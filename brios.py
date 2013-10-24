@@ -55,7 +55,7 @@ def command(pd, id, data, response=True, timeout=0.0):
             time.sleep(0.01)
             continue
         #debug(str(r))
-        if r.id == 0x403 + 8 * slave:
+        if r.can_id == 0x403 + 8 * slave:
             if r.data[1] == data[1] + 0x80:
                 debug('got response')
                 return RES_OK
@@ -65,11 +65,11 @@ def command(pd, id, data, response=True, timeout=0.0):
             else:
                 debug('unknown response')
                 return RES_UNKNOWN
-        elif r.id == 0x3C0 + slave:
+        elif r.can_id == 0x3C0 + slave:
             pd.IX = r.data[0]
             debug(str(pd))
             return RES_OK
-        elif r.id == 0x340 + slave:
+        elif r.can_id == 0x340 + slave:
             pd.IX = r.data[0]
             debug(str(pd))
 
@@ -131,7 +131,7 @@ def poll(pd):
             command(pd, id, data)
         m = pd.channel.read()
         if m:
-            if m.id == 0x340 + slave:
+            if m.can_id == 0x340 + slave:
                 pd.IX = m.data[0]
                 debug(str(pd))
     return (None, pd)

@@ -14,11 +14,11 @@ class BICAN(kvaser.KvaserCanChannel):
         self.send_primary = False
         self.exception = None
         self.primary = canmsg.CanMsg()
-        self.primary.id = (canmsg.GROUP_POUT << 27) | (((1 << 23) | 5) << 3) | canmsg.TYPE_OUT
+        self.primary.can_id = (canmsg.GROUP_POUT << 27) | (((1 << 23) | 5) << 3) | canmsg.TYPE_OUT
         self.primary.flags = canmsg.canMSG_EXT
         self.primary.data = [0x01, 0x00]
         self.config = canmsg.CanMsg()
-        self.config.id = (canmsg.GROUP_CFG << 27) | (((1 << 23) | 5) << 3) | canmsg.TYPE_OUT
+        self.config.can_id = (canmsg.GROUP_CFG << 27) | (((1 << 23) | 5) << 3) | canmsg.TYPE_OUT
         self.config.flags = canmsg.canMSG_EXT
         self.config.data = [0, 50, 0, 255, 255, 255]
         self.thread.start()
@@ -57,7 +57,7 @@ class BICAN(kvaser.KvaserCanChannel):
 
     def dump_msg(self, m):
         fmt = '%8.3f %08X %d:%s\n'
-        s = fmt % (m.time, m.id, m.dlc(), m.data_str())
+        s = fmt % (m.time, m.can_id, m.dlc(), m.data_str())
         if m.sent:
             self.send_cnt += 1
             sys.stdout.write('W ' + s)

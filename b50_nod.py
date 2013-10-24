@@ -13,7 +13,7 @@ class BICAN(socketcan.SocketCanChannel):
         self.run_thread = True
         self.thread = threading.Thread(target=self.run)
         self.run_thread = True
-        self.id = B50_ID(0x2200)
+        self.can_id = B50_ID(0x2200)
         self.send_primary = False
         self.exception = None
         self.run_primary = False
@@ -23,7 +23,7 @@ class BICAN(socketcan.SocketCanChannel):
 
     def gen_primary(self):
         primary = stcan.StCanMsg(extended=True)
-        primary.id = (stcan.GROUP_PIN << 27) | (self.id << 3) | stcan.TYPE_IN
+        primary.can_id = (stcan.GROUP_PIN << 27) | (self.can_id << 3) | stcan.TYPE_IN
         primary.data = [0x01, 0x00]
         return primary
 
@@ -56,7 +56,7 @@ class BICAN(socketcan.SocketCanChannel):
             self.send_primary = True
         elif c in 'cC':
             config = stcan.StCanMsg(extended=True)
-            config.id = (stcan.GROUP_CFG << 27) | (self.id << 3) | stcan.TYPE_IN
+            config.can_id = (stcan.GROUP_CFG << 27) | (self.can_id << 3) | stcan.TYPE_IN
             config.data = [0, 50, 0, 255, 255, 255]
             if c == 'C':
                 for i in range(1000):
@@ -87,7 +87,7 @@ class BICAN(socketcan.SocketCanChannel):
             raise self.exception
         self.log(m)
         if not m.sent:
-            if m.extended and (m.addr() <= self.id):
+            if m.extended and (m.addr() <= self.can_id):
                 if m.type() == stcan.TYPE_OUT:
                     if m.group() == stcan.GROUP_CFG:
                         self.handle_config(m)

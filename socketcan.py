@@ -61,7 +61,7 @@ class SocketCanChannel(canchannel.CanChannel):
         dlc = m.dlc
         dlca = chr(dlc) + "\0\0\0"
         data = ''.join([chr(c) for c in m.data]) + chr(0) * (8 - dlc)
-        mid = m.id
+        mid = m.can_id
         if m.extended:
             mid |= SC_EXT_BIT
         x = struct.pack("L4s8s", mid, dlca, data)

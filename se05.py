@@ -21,7 +21,7 @@ class Channel(kvaser.KvaserCanChannel):
         i = 0
         while self.run:
             m = canmsg.CanMsg()
-            m.id = 77
+            m.can_id = 77
             m.data = [i % 256,1]
             i += 1
             self.write(m)
@@ -30,7 +30,7 @@ class Channel(kvaser.KvaserCanChannel):
     def action_handler(self, c):
         if c == 'p':
             m = canmsg.CanMsg()
-            m.id = 77
+            m.can_id = 77
             m.data = [4,3,2,1,1,2,3,4]
             self.write(m)
         elif c == 'P':
@@ -44,7 +44,7 @@ class Channel(kvaser.KvaserCanChannel):
         elif c == 'l':
             for i in range(1000):
                 m = canmsg.CanMsg()
-                m.id = i << 3
+                m.can_id = i << 3
                 m.extended = True
                 m.data = [4,3,2,1,1,2,3,4]
                 self.write(m)

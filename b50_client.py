@@ -171,7 +171,7 @@ class UDPCanChannel(canchannel.CanChannel):
             self.send_frame(0x01, d)
         else:
             m = stcan.StCanMsg(extended = True)
-            m.id = (stcan.GROUP_POUT << 27) | (BUID << 3) | stcan.TYPE_OUT
+            m.can_id = (stcan.GROUP_POUT << 27) | (BUID << 3) | stcan.TYPE_OUT
             if self.gw_open:
                 m.data = [0x01]
             else:
@@ -256,10 +256,10 @@ class UDPCanChannel(canchannel.CanChannel):
     def do_write(self, msg):
         if msg.extended:
             frame_type = 0xFE
-            head = [(msg.id >> 24) & 0xFF, (msg.id >> 16) & 0xFF, (msg.id >> 8) & 0xFF, msg.id & 0xFF]
+            head = [(msg.can_id >> 24) & 0xFF, (msg.can_id >> 16) & 0xFF, (msg.can_id >> 8) & 0xFF, msg.can_id & 0xFF]
         else:
             frame_type = 0xFF
-            head = [(msg.id >> 8) & 0xFF, msg.id & 0xFF]
+            head = [(msg.can_id >> 8) & 0xFF, msg.can_id & 0xFF]
         d = head + msg.data
         self.send_frame(frame_type, d)
         msg.time = self.gettime()
@@ -345,7 +345,7 @@ if __name__ == '__main__':
                             self.app.remove(addr)
                             self.info(3, 'GW dropped CAN id {0:08X}'.format(id))
                     else:
-                        if m.id in self.managed:
+                        if m.can_id in self.managed:
                             pass
                         else:
                             if g == stcan.GROUP_PIN:
@@ -358,7 +358,7 @@ if __name__ == '__main__':
                                 else:
                                     self.version_asked.discard(buid)
                                     self.type_asked.discard(buid)
-                                    self.manage(m.id)
+                                    self.manage(m.can_id)
                                     self.add_app(buid)
                             elif g == stcan.GROUP_CFG:
                                 cmd = m.get_word(0)
@@ -383,13 +383,13 @@ if __name__ == '__main__':
                     return
                 m = stcan.StCanMsg(extended = True)
                 if c == 'r':
-                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 86, 0, 1]
                 elif c in 'u':
-                    m.id = (stcan.GROUP_SEC << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (stcan.GROUP_SEC << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0x00, 40, 0x0C, 0x00, 0x00, 0x01]
                 elif c in 'mM1!2"3#':
-                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     if c == 'm':
                         m.data = [0x00, 84, 0x0C, 0x00, 0x00, 0x01, 3, 0]
                     elif c == 'M':
@@ -407,31 +407,31 @@ if __name__ == '__main__':
                     elif c == '#':
                         m.data = [0x00, 84, 0x0C, 0x00, 0x00, 0x59, 0, 0]
                 elif c in 'rR':
-                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     if c == 'r':
                         m.data = [0x00, 85, 0, 0, 0, 7, 1, 0]
                     else:
                         m.data = [0x00, 85, 0, 0, 0, 7, 0, 0]
                 elif c == 'v':
-                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 99, 0, 30]
                 elif c == 'V':
-                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 99, 0, 31]
                 elif c == 's':
                     m.data = [0, 99, 0, 92]
                 elif c == 't':
-                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 87, 0, 0, 0x05, 0xDC]
                 elif c == 'a':
-                    m.id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
                     m.data = [0, 99, 0, 93]
                 else:
                     try:
                         self.i += 1
                     except:
                         self.i = 0
-                    m.id = 7
+                    m.can_id = 7
                     m.data = [self.i & 0xFF]
                 self.write(m)
 

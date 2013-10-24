@@ -20,7 +20,7 @@ class BRIOSCAN(kvaser.KvaserCanChannel):
 
     def dump_msg(self, m):
         fmt = '{0:8.3f} {1:03X} {2:d}:{3:s}\n'
-        s = fmt.format(m.time, m.id, m.dlc(), m.data_str())
+        s = fmt.format(m.time, m.can_id, m.dlc(), m.data_str())
         sys.stdout.write(s)
 
     def debug(self, str):
