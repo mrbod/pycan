@@ -85,7 +85,7 @@ bitrates = {
 
 bitrate_values = bitrates.values()
 bitrate_values.sort(key=lambda x: int(x[1]))
-baudrates = [x[0] for x in bitrate_values]
+baudrates = [(x[0], int(x[1])) for x in bitrate_values]
 
 def bitrate_search(x):
     x = str(x)

@@ -335,7 +335,7 @@ class LoggerWindow(tk.Toplevel):
 def channel_setup():
     '''Channel setup'''
     channel_types = {}
-    br = ()
+    br = {}
     channel_types['Simulated'] = (canchannel.CanChannel, ('Internal',), br)
     kvaser_channels = kvaser.list_channels()
     if len(kvaser_channels) > 0:
@@ -345,12 +345,14 @@ def channel_setup():
 
 class BaudSelector(tk.Toplevel):
     def __init__(self, master, baudrates):
+        self.br = tk.StringVar()
         tk.Toplevel.__init__(self, master=master)
-        self.combo = ttk.Combobox(self, values=baudrates)
+        self.combo = ttk.Combobox(self, textvariable=self.br, values=baudrates)
         self.combo.pack()
 
     def run(self):
         self.wait_window(self)
+        return self.br.get()
 
 class PyCan(tk.Tk):
     '''This is the class'''
@@ -389,7 +391,7 @@ class PyCan(tk.Tk):
             baudrates = channel_types[parent][2]
             if baudrates:
                 bs = BaudSelector(self, baudrates)
-                bs.run()
+                print bs.run()
             LoggerWindow(driver_cls)
         except Exception as e:
             title = 'Failed to open {} {}'.format(parent, channel)
