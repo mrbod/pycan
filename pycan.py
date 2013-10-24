@@ -65,12 +65,16 @@ class Logger(ttk.Frame):
         self.no_of_lines = 0
         self.text = tk.Text(self, font=self.font)
         self.bind('<Configure>', self.handle_configure)
+        # mouse buttons
         self.text.bind('<Button-1>', lambda x: None)
         self.text.bind('<Button-2>', lambda x: None)
         self.text.bind('<Button-3>', self.do_popup_menu)
+        # scroll wheel on windows
         self.text.bind('<MouseWheel>', self.mouse_wheel)
+        # scroll wheel on linux
         self.text.bind('<Button-4>', self.mouse_wheel)
         self.text.bind('<Button-5>', self.mouse_wheel)
+        # key presses
         self.text.bind('<KeyPress>', self.handle_keypress)
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
         self.scrbar = tk.Scrollbar(self)
