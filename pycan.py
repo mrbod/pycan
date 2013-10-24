@@ -14,6 +14,7 @@ import canchannel
 import kvaser
 import canmsg
 import os
+import dialog
 
 class IDMaskDialog(tk.Toplevel):
     '''Dialog for setting of ID and MASK'''
@@ -275,13 +276,13 @@ class Logger(ttk.Frame):
 
 class LoggerWindow(tk.Toplevel):
     '''A logging window'''
-    def __init__(self, channel):
+    def __init__(self, channel, bitrate):
         tk.Toplevel.__init__(self)
         self.logger = Logger(self)
         self.logger.pack(expand=True, fill="both")
         self.bind('<KeyPress>', self.logger.handle_keypress)
         try:
-            self.driver = channel(logger=self.logger)
+            self.driver = channel(logger=self.logger, bitrate=bitrate)
         except:
             self.destroy()
             raise
@@ -335,24 +336,34 @@ class LoggerWindow(tk.Toplevel):
 def channel_setup():
     '''Channel setup'''
     channel_types = {}
-    br = {}
-    channel_types['Simulated'] = (canchannel.CanChannel, ('Internal',), br)
+    channel_types['Simulated'] = (canchannel.CanChannel, ('Internal',), None)
     kvaser_channels = kvaser.list_channels()
     if len(kvaser_channels) > 0:
-        br = kvaser.baudrates
+        br = kvaser.bitrates
         channel_types['Kvaser'] = (kvaser.KvaserCanChannel, kvaser_channels, br)
     return channel_types
 
-class BaudSelector(tk.Toplevel):
-    def __init__(self, master, baudrates):
-        self.br = tk.StringVar()
-        tk.Toplevel.__init__(self, master=master)
-        self.combo = ttk.Combobox(self, textvariable=self.br, values=baudrates)
+class BaudSelector(dialog.Dialog):
+    def __init__(self, parent, baudrates):
+        self.br = baudrates
+        super(BaudSelector, self).__init__(parent, title='Select bitrate')
+
+    def body(self, master):
+        self.selection = tk.StringVar()
+        self.selection.set('125')
+        x = self.br
+        x = x.items()
+        x = [(k, v[0]) for k, v in x]
+        x.sort(key=lambda z: z[1])
+        self.x = [a[0] for a in x]
+        self.combo = ttk.Combobox(master, textvariable=self.selection, values=self.x)
+        self.combo.state(['!disabled', 'readonly'])
         self.combo.pack()
+        return self.combo
 
     def run(self):
-        self.wait_window(self)
-        return self.br.get()
+        super(BaudSelector, self).run()
+        return self.selection.get()
 
 class PyCan(tk.Tk):
     '''This is the class'''
@@ -371,6 +382,7 @@ class PyCan(tk.Tk):
         keys.sort()
         for k in keys:
             chns = channels[k][1]
+            br = channels[k][2]
             self.driver_list.insert('', index='end', text=k, iid=k)
             for i, clsname in enumerate(chns):
                 ciid = '{}_{}'.format(k, i)
@@ -378,6 +390,15 @@ class PyCan(tk.Tk):
                         , tags='channel')
         self.driver_list.tag_bind('channel', '<<TreeviewOpen>>', self.do_open)
         self.driver_list.tag_bind('channel', '<<TreeviewClose>>', self.do_open)
+        self.center()
+
+    def center(self):
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() / 2) - (width / 2)
+        y = (self.winfo_screenheight() / 2) - (height / 2)
+        self.geometry('{0}x{1}+{2}+{3}'.format(width, height, x, y))
 
     def do_open(self, *args):
         '''Open driver channel'''
@@ -389,10 +410,11 @@ class PyCan(tk.Tk):
             channel_types = channel_setup()
             driver_cls = channel_types[parent][0]
             baudrates = channel_types[parent][2]
+            br = None
             if baudrates:
                 bs = BaudSelector(self, baudrates)
-                print bs.run()
-            LoggerWindow(driver_cls)
+                br = bs.run()
+            LoggerWindow(driver_cls, br)
         except Exception as e:
             title = 'Failed to open {} {}'.format(parent, channel)
             tkMessageBox.showerror(title, str(e))

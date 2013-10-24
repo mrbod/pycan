@@ -72,26 +72,29 @@ canBITRATE_83K = -8
 canBITRATE_10K = -9
 
 bitrates = {
-        canBITRATE_1M: ('1M', '1000000'),
-        canBITRATE_500K: ('500K', '500000'),
-        canBITRATE_250K: ('250K', '250000'),
-        canBITRATE_125K: ('125K', '125000'),
-        canBITRATE_100K: ('100K', '100000'),
-        canBITRATE_62K: ('62K', '62000'),
-        canBITRATE_50K: ('50K', '50000'),
-        canBITRATE_83K: ('83K', '83000'),
-        canBITRATE_10K: ('10K', '10000')
+        '1000K': (1000000, canBITRATE_1M),
+        '500K': (500000, canBITRATE_500K),
+        '250K': (250000, canBITRATE_250K),
+        '125K': (125000, canBITRATE_125K),
+        '100K': (100000, canBITRATE_100K),
+        '62K': (62000, canBITRATE_62K),
+        '50K': (50000, canBITRATE_50K),
+        '83K': (83000, canBITRATE_83K),
+        '10K': (10000, canBITRATE_10K)
         }
 
-bitrate_values = bitrates.values()
-bitrate_values.sort(key=lambda x: int(x[1]))
-baudrates = [(x[0], int(x[1])) for x in bitrate_values]
-
 def bitrate_search(x):
-    x = str(x)
     for k, v in bitrates.items():
-        if x in v:
-            return k
+        if x == k:
+            return v[1]
+        elif x == k[:-1]:
+            return v[1]
+        elif x == int(k[:-1]):
+            return v[1]
+        elif x == str(v[0]):
+            return v[1]
+        elif x == v[1]:
+            return v[1]
     return None
 
 canWANT_EXCLUSIVE = 0x0008
@@ -209,12 +212,11 @@ class KvaserCanChannel(canchannel.CanChannel):
     def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False, **kwargs):
         canlib.canInitializeLibrary()
         self.channel = ctypes.c_int(channel)
-        if bitrate not in bitrates.keys():
-            br = bitrate_search(bitrate)
-            if br is None:
-                s = 'Unknown bitrate: {0}'.format(str(bitrate))
-                raise KvaserException(s)
-            bitrate = br
+        br = bitrate_search(bitrate)
+        if br is None:
+            s = 'Unknown bitrate: {0}'.format(str(bitrate))
+            raise KvaserException(s)
+        bitrate = br
         self.bitrate = ctypes.c_int(bitrate)
         self.silent = silent
         self.flags = ctypes.c_int(canWANT_EXTENDED | canOPEN_ACCEPT_VIRTUAL)
