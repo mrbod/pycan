@@ -68,8 +68,9 @@ class Logger(ttk.Frame):
         self.text.bind('<Button-1>', lambda x: None)
         self.text.bind('<Button-2>', lambda x: None)
         self.text.bind('<Button-3>', self.do_popup_menu)
-        self.text.bind('<Button-4>', self.wheel_up)
-        self.text.bind('<Button-5>', self.wheel_down)
+        self.text.bind('MouseWheel', self.mouse_wheel)
+        self.text.bind('<Button-4>', self.mouse_wheel)
+        self.text.bind('<Button-5>', self.mouse_wheel)
         self.text.bind('<KeyPress>', self.handle_keypress)
         self.text.pack(side=tk.LEFT, expand=True, fill="both")
         self.scrbar = tk.Scrollbar(self)
@@ -107,13 +108,12 @@ class Logger(ttk.Frame):
                 return color_code
         return None
 
-    def wheel_up(self, event):
-        '''Handle scroll wheel up'''
-        self.scroll('scroll', '-5', 'units')
-
-    def wheel_down(self, event):
-        '''Handle scroll wheel down'''
-        self.scroll('scroll', '5', 'units')
+    def mouse_wheel(self, event):
+        '''Handle scroll wheel'''
+        if event.num == 4 or event.delta == 120:
+            self.scroll('scroll', '-5', 'units')
+        elif event.num == 5 or event.delta == -120:
+            self.scroll('scroll', '5', 'units')
 
     def handle_configure(self, event):
         '''Handle configure'''
