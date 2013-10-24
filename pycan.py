@@ -339,7 +339,7 @@ def channel_setup():
     channel_types['Simulated'] = (canchannel.CanChannel, ('Internal',), br)
     kvaser_channels = kvaser.list_channels()
     if len(kvaser_channels) > 0:
-        br = ('125000', '250000')
+        br = kvaser.baudrates
         channel_types['Kvaser'] = (kvaser.KvaserCanChannel, kvaser_channels, br)
     return channel_types
 

@@ -83,6 +83,10 @@ bitrates = {
         canBITRATE_10K: ('10K', '10000')
         }
 
+bitrate_values = bitrates.values()
+bitrate_values.sort(key=lambda x: int(x[1]))
+baudrates = [x[0] for x in bitrate_values]
+
 def bitrate_search(x):
     x = str(x)
     for k, v in bitrates.items():
