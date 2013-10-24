@@ -68,7 +68,7 @@ class Logger(ttk.Frame):
         self.text.bind('<Button-1>', lambda x: None)
         self.text.bind('<Button-2>', lambda x: None)
         self.text.bind('<Button-3>', self.do_popup_menu)
-        self.text.bind('MouseWheel', self.mouse_wheel)
+        self.text.bind('<MouseWheel>', self.mouse_wheel)
         self.text.bind('<Button-4>', self.mouse_wheel)
         self.text.bind('<Button-5>', self.mouse_wheel)
         self.text.bind('<KeyPress>', self.handle_keypress)
