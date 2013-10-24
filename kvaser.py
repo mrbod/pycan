@@ -179,6 +179,9 @@ else:
 
 def list_channels():
     '''Return a list of connected channels'''
+    if not canlib:
+        return ()
+    canlib.canInitializeLibrary()
     cnt = ctypes.c_int()
     stat = canlib.canGetNumberOfChannels(ctypes.byref(cnt))
     if stat < 0:
