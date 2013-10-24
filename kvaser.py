@@ -160,19 +160,19 @@ if sys.platform == 'linux2':
         time = ctypes.c_uint()
         canlib.canReadTimer(handle, ctypes.byref(time))
         return time.value / 1000.0
-    gettime = gettime_linux
+    canReadTimer = canlib.canReadTimer
 elif sys.platform == 'cygwin':
     canlib = ctypes.CDLL('canlib32.dll')
     def gettime_windows(handle):
         x = canlib.canReadTimer(handle)
         return x / 1000.0
-    gettime = gettime_windows
+    canReadTimer = canlib.kvReadTimer
 elif sys.platform == 'win32':
     canlib = ctypes.windll.canlib32
     def gettime_windows(handle):
         x = canlib.canReadTimer(handle)
         return x / 1000.0
-    gettime = gettime_windows
+    canReadTimer = canlib.kvReadTimer
 else:
     s = 'Unknown platform: {0:s}'.format(sys.platform)
     raise KvaserException(s)
@@ -248,7 +248,9 @@ class KvaserCanChannel(canchannel.CanChannel):
         super(KvaserCanChannel, self).__init__(**kwargs)
 
     def gettime(self):
-        return gettime(self.handle)
+        time = ctypes.c_uint()
+        canReadTimer(self.handle, ctypes.byref(time))
+        return time.value / 1000.0
 
     def set_baud(self, handle, baud):
         settings = bitrate_settings[baud]
