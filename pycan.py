@@ -280,13 +280,13 @@ class Logger(ttk.Frame):
 
 class LoggerWindow(tk.Toplevel):
     '''A logging window'''
-    def __init__(self, channel, bitrate):
+    def __init__(self, driver, channel, bitrate):
         tk.Toplevel.__init__(self)
         self.logger = Logger(self)
         self.logger.pack(expand=True, fill="both")
         self.bind('<KeyPress>', self.logger.handle_keypress)
         try:
-            self.driver = channel(logger=self.logger, bitrate=bitrate)
+            self.driver = driver(logger=self.logger, channel=channel, bitrate=bitrate)
         except:
             self.destroy()
             raise
@@ -418,7 +418,7 @@ class PyCan(tk.Tk):
             if baudrates:
                 bs = BaudSelector(self, baudrates)
                 br = bs.run()
-            LoggerWindow(driver_cls, br)
+            LoggerWindow(driver_cls, channel, br)
         except Exception as e:
             title = 'Failed to open {} {}'.format(parent, channel)
             tkMessageBox.showerror(title, str(e))
