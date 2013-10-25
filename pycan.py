@@ -376,12 +376,12 @@ class PyCan(tk.Tk):
         self.center()
         self.title('PyCAN')
         self.bind_all('<Control-Key-q>', self.do_quit)
-        #self.driver_frame = ttk.Frame(self)
-        #self.driver_frame.pack()
-        self.driver_list = ttk.Treeview(self#.driver_frame
+        self.driver_frame = ttk.Frame(self)
+        self.driver_frame.pack(fill=tk.BOTH)
+        self.driver_list = ttk.Treeview(self.driver_frame
                 , selectmode='browse')
         self.driver_list.heading('#0', text='Driver')
-        self.driver_list.pack()
+        self.driver_list.pack(fill=tk.BOTH)
         channels = channel_setup()
         keys = channels.keys()
         keys.sort()
