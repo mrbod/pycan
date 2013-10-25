@@ -373,11 +373,12 @@ class PyCan(tk.Tk):
     '''This is the class'''
     def __init__(self):
         tk.Tk.__init__(self)
+        self.center()
         self.title('PyCAN')
         self.bind_all('<Control-Key-q>', self.do_quit)
-        self.driver_frame = ttk.Frame(self)
-        self.driver_frame.pack()
-        self.driver_list = ttk.Treeview(self.driver_frame
+        #self.driver_frame = ttk.Frame(self)
+        #self.driver_frame.pack()
+        self.driver_list = ttk.Treeview(self#.driver_frame
                 , selectmode='browse')
         self.driver_list.heading('#0', text='Driver')
         self.driver_list.pack()
@@ -394,7 +395,6 @@ class PyCan(tk.Tk):
                         , tags='channel')
         self.driver_list.tag_bind('channel', '<<TreeviewOpen>>', self.do_open)
         self.driver_list.tag_bind('channel', '<<TreeviewClose>>', self.do_open)
-        self.center()
 
     def center(self):
         self.update_idletasks()
