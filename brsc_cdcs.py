@@ -70,7 +70,8 @@ def main():
     while 1:
         s = c.recv()
         if s:
-            print s
+            sys.stdout.write(s)
+            sys.stdout.flush()
         else:
             time.sleep(0.01)
 
