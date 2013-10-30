@@ -319,10 +319,11 @@ class LoggerWindow(tk.Toplevel):
         '''Send a message'''
         msg = canmsg.CanMsg()
         msg.extended = False
-        msg.addr = 7
+        msg.addr = 0
         msg.group = canmsg.GROUP_POUT
-        msg.type = canmsg.TYPE_OUT
-        msg.data = [0, 0, 0x5A, 0x40, 0, 0, 0]
+        msg.type = canmsg.TYPE_MON
+        #msg.data = [0, 0, 0x5A, 0x40, 0, 0, 0]
+        msg.data = [ord(c) for c in 'abcdef']
         self.driver.write(msg)
 
     def do_quit(self, *args):
