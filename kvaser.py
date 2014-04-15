@@ -87,13 +87,13 @@ def bitrate_search(x):
     for k, v in bitrates.items():
         if x == k:
             return v[1]
-        elif x == k[:-1]:
+        if x == k[:-1]:
             return v[1]
-        elif x == int(k[:-1]):
+        if x == int(k[:-1]):
             return v[1]
-        elif x == str(v[0]):
+        if x == str(v[0]):
             return v[1]
-        elif x == v[1]:
+        if x == v[1]:
             return v[1]
     return None
 
