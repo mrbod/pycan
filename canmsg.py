@@ -256,12 +256,60 @@ class CanMsg(object):
         data = [int(x, 16) for x in data[-1].split()]
         return cls(can_id=can_id, time=time, data=data)
 
+
+    @classmethod
+    def from_vector(cls, s):
+        o = vector_re.match(s)
+        if not o:
+            raise CanMsgException('Not a frame: ' + s)
+        channel = int(o.group(2))
+        time = float(o.group(1))
+        can_id = int(o.group(3), 16)
+        d = o.group(5)
+        if len(d) > 0:
+            data = [int(x, 16) for x in d.strip().split()]
+        else:
+            data = []
+        return cls(can_id=can_id, time=time, data=data, channel=channel)
+
+vector_re = re.compile(r'\s*(\d+\.\d+)\s+(\d+)\s+([0-9A-Fa-f]+)x\s+Rx\s+d\s(\d+)((?:\s+[0-9A-F]{2})*)\s+')
 biscan_re = re.compile(r'(\d+)\s+\d+\s+(\d+,\d+)\s+\w+\s+([0-9A-Fa-f]+)\s+\d\s+\[\s*([^]]*)\]')
 
+def translate(f):
+    trs = (CanMsg.from_vector, CanMsg.from_biscan)
+    tr = None
+    done = False
+    def reader(f):
+        while not done:
+            l = f.readline()
+            if l:
+                yield l
+            else:
+                return
+    for i, l in enumerate(reader(f)):
+        for tr in trs:
+            try:
+                yield tr(l)
+                done = True
+                break
+            except CanMsgException as e:
+                pass
+    else:
+        if not done:
+            raise CanMsgException('No working translator found for input\n')
+    for l in f:
+        try:
+            yield tr(l)
+        except CanMsgException as e:
+            pass
+
 if __name__ == '__main__':
-    m = CanMsg()
-    m.data = [1,2,3,4]
-    print m
-    print m.d2
-    print m.data[5]
+    import sys
+    if not sys.stdin.isatty():
+        for m in translate(sys.stdin):
+            print m
+    else:
+        m = CanMsg()
+        m.data = [1,2,3,4]
+        print m
 
