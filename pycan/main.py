@@ -1,20 +1,29 @@
-#!/usr/bin/env python
 ''' Python CAN bus monitor
 
 Splendid indeed'''
+
 import sys
-import re
-import Tkinter as tk
-import ttk
-import tkMessageBox
-import tkFileDialog
-import tkColorChooser
-import tkFont
-import canchannel
-import kvaser
-import canmsg
+if sys.version_info.major > 2:
+    import tkinter as tk
+    import tkinter.ttk as ttk
+    import tkinter.messagebox as messagebox
+    import tkinter.filedialog as tkFileDialog
+    import tkinter.colorchooser as tkColorChooser
+    import tkinter.font as tkFont
+else:
+    import Tkinter as tk
+    import ttk
+    import tkMessageBox as messagebox
+    import tkFileDialog
+    import tkColorChooser
+    import tkFont
 import os
-import dialog
+import re
+
+from pycan import dialog
+from pycan.canchannel import canchannel
+from pycan.kvaser import kvaser
+from pycan.canmsg import canmsg
 
 class IDMaskDialog(tk.Toplevel):
     '''Dialog for setting of ID and MASK'''
@@ -121,14 +130,13 @@ class Logger(ttk.Frame):
 
     def handle_configure(self, event):
         '''Handle configure'''
-        self.no_of_lines = event.height / self.line_height
+        self.no_of_lines = event.height // self.line_height
 
     def filter_mask_id(self):
-        print 'filter_mask_id'
         try:
             dlg = IDMaskDialog(self, title='Filter mask/id')
         except Exception as e:
-            print str(e)
+            print(str(e))
         self.wait_window(dlg)
         if dlg.result:
             def filt(msg):
@@ -200,7 +208,7 @@ class Logger(ttk.Frame):
                     output_file.write(line)
                     self.saved_at_row = i
         except Exception as e:
-            tkMessageBox.showerror('File save error', str(e))
+            messagebox.showerror('File save error', str(e))
 
     def poll(self):
         '''Do stuff at poll intervall'''
@@ -384,7 +392,7 @@ class PyCan(tk.Tk):
         self.driver_list.heading('#0', text='Driver')
         self.driver_list.pack(fill=tk.BOTH)
         channels = channel_setup()
-        keys = channels.keys()
+        keys = list(channels.keys())
         keys.sort()
         for k in keys:
             chns = channels[k][1]
@@ -403,7 +411,7 @@ class PyCan(tk.Tk):
         height = self.winfo_height()
         x = (self.winfo_screenwidth() / 2) - (width / 2)
         y = (self.winfo_screenheight() / 2) - (height / 2)
-        self.geometry('{0}x{1}+{2}+{3}'.format(width, height, x, y))
+        #self.geometry('{0}x{1}+{2}+{3}'.format(width, height, x, y))
 
     def do_open(self, *args):
         '''Open driver channel'''
@@ -422,7 +430,7 @@ class PyCan(tk.Tk):
             LoggerWindow(driver_cls, channel, br)
         except Exception as e:
             title = 'Failed to open {} {}'.format(parent, channel)
-            tkMessageBox.showerror(title, str(e))
+            messagebox.showerror(title, str(e))
 
     def do_quit(self, *args):
         '''Quit'''
@@ -430,14 +438,11 @@ class PyCan(tk.Tk):
 
 def main():
     '''Main'''
-    app = PyCan()
-    app.mainloop()
-
-if __name__ == '__main__':
     try:
-        main()
+        app = PyCan()
+        app.mainloop()
     except KeyboardInterrupt:
         pass
     except Exception as e:
-        tkMessageBox.showerror('Exception', str(e))
+        messagebox.showerror('Exception', str(e))
 

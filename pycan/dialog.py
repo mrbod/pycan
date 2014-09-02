@@ -1,5 +1,8 @@
-#!/usr/bin/env python
-import Tkinter as tk
+import sys
+if sys.version_info.major > 2:
+    import tkinter as tk
+else:
+    import Tkinter as tk
 
 class Dialog(object):
     def __init__(self, parent, title = None):

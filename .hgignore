@@ -3,4 +3,7 @@ syntax: glob
 *.pyc
 cscope.out
 *.swp
+dist
+build
+*.egg-info
 

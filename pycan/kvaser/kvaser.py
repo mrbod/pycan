@@ -4,10 +4,11 @@ import os
 from ctypes import c_int, byref, create_string_buffer
 import ctypes.util
 import time
-import canchannel
-import canmsg
 import optparse
 import platform
+
+from pycan.canchannel import canchannel
+from pycan.canmsg import canmsg
 
 canMSG_RTR = 0x0001      # Message is a remote request
 canMSG_STD = 0x0002      # Message has a standard ID
@@ -91,6 +92,8 @@ def bitrate_search(x):
             return v[1]
         if x == int(k[:-1]):
             return v[1]
+        if x == v[0]:
+            return v[1]
         if x == str(v[0]):
             return v[1]
         if x == v[1]:
@@ -161,7 +164,7 @@ class KvaserException(Exception):
     pass
 
 canlib = None
-if sys.platform == 'linux2':
+if sys.platform.startswith('linux'):
     canlib = ctypes.CDLL('libcanlib.so')
     def gettime_linux(handle):
         time = ctypes.c_uint()

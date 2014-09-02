@@ -1,10 +1,15 @@
-#!/usr/bin/env python
 import sys
 import time
 import threading
-import Queue
+try:
+    #python3
+    import queue
+except:
+    # python2
+    import Queue as queue
 import random
-import canmsg
+
+from pycan.canmsg import canmsg
 
 class DefaultLogger(object):
     def __init__(self):
@@ -33,9 +38,9 @@ class CanChannel(object):
         self.read_thread.daemon = True
         self.msg_handler_thread = threading.Thread(target=self._message)
         self.msg_handler_thread.daemon = True
-        self.write_queue = Queue.Queue()
-        self.read_queue = Queue.Queue()
-        self.msg_handler_queue = Queue.Queue()
+        self.write_queue = queue.Queue()
+        self.read_queue = queue.Queue()
+        self.msg_handler_queue = queue.Queue()
         self._go()
 
     def _go(self):
@@ -52,9 +57,9 @@ class CanChannel(object):
                     m = self.write_queue.get(True, 1)
                     if self.running:
                         self.do_write(m)
-                except Queue.Empty:
+                except queue.Empty:
                     pass
-        except Exception, e:
+        except Exception as e:
             self.log(str(e) + '\n')
             sys.exit()
         finally:
@@ -66,7 +71,7 @@ class CanChannel(object):
                 m = self.do_read()
                 if m and self.running:
                     self.read_queue.put(m)
-        except Exception, e:
+        except Exception as e:
             self.log(str(e) + '\n')
             sys.exit()
         finally:
@@ -79,9 +84,9 @@ class CanChannel(object):
                     m = self.msg_handler_queue.get(True, 1)
                     if self.running:
                         self.message_handler(m)
-                except Queue.Empty:
+                except queue.Empty:
                     pass
-        except Exception, e:
+        except Exception as e:
             self.log(str(e) + '\n')
             sys.exit()
         finally:
@@ -121,7 +126,7 @@ class CanChannel(object):
             m.channel = self
             self.msg_handler_queue.put(m)
             return m
-        except Queue.Empty:
+        except queue.Empty:
             return None
 
     def write(self, m):
@@ -162,7 +167,7 @@ def main():
                 m = ch.read()
                 if not m:
                     time.sleep(0.5)
-    except Exception, e:
+    except Exception as e:
         sys.stderr.write(str(e))
         raise
     finally:
