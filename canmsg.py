@@ -1,5 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+import sys
 import re
+import time
 
 class CanMsgException(Exception):
     pass
@@ -17,10 +19,8 @@ TYPE_MON = 5
 FORMAT_STD = 0
 FORMAT_STCAN = 1
 
-std_fmt = '{0.sid:>8} {0.time:9.3f} {0.dlc}: {0.data:s}'
+std_fmt = '{0.sid:>8} {0.time:9.3f} {0.dlc}: {0.data!s:s}'
 stcan_fmt = '{0.stcan:<15s} ' + std_fmt
-
-data_fmt = '{0:02X}'
 
 formats = [std_fmt, stcan_fmt]
 
@@ -54,8 +54,16 @@ class Data(bytearray):
         self.dlc = len(self)
 
     def __str__(self):
-        t = (data_fmt.format(d) for d in self)
+        t = ('{0:02X}'.format(d) for d in self)
         return ', '.join(t)
+
+    def __eq__(self, o):
+        if self.dlc != o.dlc:
+            return False
+        for i in range(self.dlc):
+            if self[i] != o[i]:
+                return False
+        return True
 
 class CanMsg(object):
     __slots__ = ('can_id', 'xx_data', 'xx_extended'
@@ -233,7 +241,7 @@ class CanMsg(object):
         return not self.__eq__(other)
 
     @classmethod
-    def from_biscan(cls, s):
+    def from_biscan(cls, s, extended=False):
         o = biscan_re.match(s)
         if not o:
             raise CanMsgException('Not a frame: ' + s)
@@ -246,70 +254,99 @@ class CanMsg(object):
             data = [int(x, 16) for x in d]
         else:
             data = []
-        return cls(can_id=can_id, time=time, data=data, channel=channel)
+        return cls(can_id=can_id, time=time, data=data, channel=channel, extended=extended)
 
     @classmethod
-    def from_magnus(cls, s):
+    def from_magnus(cls, s, extended=False):
         data = s.strip().split(None, 7)
         can_id = int(data[5], 16)
         time = int(data[4]) / 1000.0
         data = [int(x, 16) for x in data[-1].split()]
-        return cls(can_id=can_id, time=time, data=data)
+        return cls(can_id=can_id, time=time, data=data, extended=extended)
 
 
     @classmethod
-    def from_vector(cls, s):
+    def from_vector(cls, s, extended=False):
         o = vector_re.match(s)
         if not o:
             raise CanMsgException('Not a frame: ' + s)
         channel = int(o.group(2))
         time = float(o.group(1))
         can_id = int(o.group(3), 16)
-        d = o.group(5)
+        sent = o.group(4) == 'T'
+        d = o.group(6)
         if len(d) > 0:
             data = [int(x, 16) for x in d.strip().split()]
         else:
             data = []
-        return cls(can_id=can_id, time=time, data=data, channel=channel)
+        return cls(can_id=can_id, time=time, data=data, channel=channel, extended=extended, sent=sent)
 
-vector_re = re.compile(r'\s*(\d+\.\d+)\s+(\d+)\s+([0-9A-Fa-f]+)x\s+Rx\s+d\s(\d+)((?:\s+[0-9A-F]{2})*)\s+')
+vector_re = re.compile(r'\s*(\d+\.\d+)\s+(\d+)\s+([0-9A-Fa-f]+)x\s+([TR])x\s+d\s(\d+)((?:\s+[0-9A-F]{2})*)\s+')
 biscan_re = re.compile(r'(\d+)\s+\d+\s+(\d+,\d+)\s+\w+\s+([0-9A-Fa-f]+)\s+\d\s+\[\s*([^]]*)\]')
 
-def translate(f):
+def __translate(f, extended):
     trs = (CanMsg.from_vector, CanMsg.from_biscan)
     tr = None
-    done = False
-    def reader(f):
-        while not done:
-            l = f.readline()
-            if l:
-                yield l
-            else:
-                return
-    for i, l in enumerate(reader(f)):
+    translator_found = False
+    for i, l in enumerate(f):
         for tr in trs:
             try:
-                yield tr(l)
-                done = True
+                yield tr(l, extended)
+                translator_found = True
                 break
             except CanMsgException as e:
                 pass
-    else:
-        if not done:
-            raise CanMsgException('No working translator found for input\n')
+        else:
+            if i > 500:
+                break
+        if translator_found:
+            break
+    if not translator_found:
+        raise CanMsgException('No working translator found for input\n')
     for l in f:
         try:
-            yield tr(l)
+            yield tr(l, extended)
         except CanMsgException as e:
             pass
 
+def __translate_timed(f, extended):
+    t0 = time.time()
+    for m in __translate(f, extended):
+        t = time.time() - t0
+        if m.time > t:
+            time.sleep(m.time - t)
+        yield m
+
+def __translator(timed):
+    if timed:
+        return __translate_timed
+    return __translate
+
+def translate(f, timed, extended):
+    for m in __translator(timed)(f, extended):
+        yield m
+
+def main():
+    timed = False
+    extended = False
+    for a in sys.argv[1:]:
+        if a == '-t':
+            timed = True
+        elif a == '-s':
+            format_set(FORMAT_STCAN)
+        elif a == '-e':
+            extended = True
+    try:
+        for m in translate(sys.stdin, timed, extended):
+            print(m)
+    except CanMsgException as e:
+        sys.stderr.write('error: ' + str(e) + '\n')
+
 if __name__ == '__main__':
-    import sys
     if not sys.stdin.isatty():
-        for m in translate(sys.stdin):
-            print m
+        main()
     else:
         m = CanMsg()
         m.data = [1,2,3,4]
-        print m
+        print(str(m))
 

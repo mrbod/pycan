@@ -315,7 +315,8 @@ class KvaserCanChannel(canchannel.CanChannel):
                 msg.time = self.gettime()
                 break
             if cnt % 10 == 0:
-                self.info(5, 'written {0} times'.format(cnt))
+                #self.info(5, 'written {0} times'.format(cnt))
+                pass
             elif cnt > 10000:
                 raise KvaserException('do_write failed(%d)' % res)
 
@@ -332,7 +333,7 @@ class KvaserOptions(optparse.OptionParser):
                 dest='channel', type='int', default=0,
                 help='desired channel',
                 metavar='CHANNEL')
-        x = [y[0] for y in bitrates.values()]
+        x = [str(y[0]) for y in bitrates.values()]
         self.add_option(
                 '-b', '--bitrate',
                 dest='bitrate', type='string', default=canBITRATE_125K,
