@@ -16,6 +16,7 @@ setup(name=name,
         entry_points={
             'console_scripts': [
                 'pycan=pycan.main:main',
+                'biscan_conv=pycan.biscan_conv:main',
                 'kvaserlog=pycan.kvaserlog.kvaserlog:main'
                 ],
             }
