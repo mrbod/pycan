@@ -227,6 +227,8 @@ def list_channels():
         channels.append(name.value)
     return tuple(channels)
 
+bytes_8 = ctypes.c_ubyte * 8
+
 class KvaserCanChannel(canchannel.CanChannel):
     def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False, **kwargs):
         canlib.canInitializeLibrary()
@@ -297,7 +299,7 @@ class KvaserCanChannel(canchannel.CanChannel):
 
     def do_read(self):
         id = ctypes.c_int()
-        data = ctypes.create_string_buffer(8)
+        data = bytes_8()
         dlc = ctypes.c_int()
         flags = ctypes.c_int()
         T = ctypes.c_uint()
@@ -308,7 +310,7 @@ class KvaserCanChannel(canchannel.CanChannel):
             if flags.value & canMSG_ERROR_FRAME:
                 m = canmsg.CanMsg(error_frame=True)
                 return m
-            d = [ord(data[i]) for i in range(dlc.value)]
+            d = [data[i] for i in range(dlc.value)]
             if flags.value & canMSG_EXT != 0:
                 ext = True
             else:
@@ -324,7 +326,9 @@ class KvaserCanChannel(canchannel.CanChannel):
         return None
 
     def do_write(self, msg):
-        d = ''.join([chr(x) for x in msg.data])
+        d = bytes_8()
+        for i, x in enumerate(msg.data):
+            d[i] = x
         cnt = 0
         if msg.extended:
             flags = canMSG_EXT
@@ -332,7 +336,7 @@ class KvaserCanChannel(canchannel.CanChannel):
             flags = canMSG_STD
         while True:
             cnt += 1
-            res = canlib.canWrite(self.handle, msg.can_id, d, len(d), flags)
+            res = canlib.canWrite(self.handle, msg.can_id, d, msg.dlc, flags)
             if res == 0:
                 msg.time = self.gettime()
                 break

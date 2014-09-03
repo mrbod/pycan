@@ -53,7 +53,10 @@ class Data(bytearray):
         self.dlc = len(self)
 
     def __str__(self):
-        t = ('{0:02X}'.format(d) for d in self)
+        try:
+            t = ('{0:02X}'.format(d) for d in self)
+        except Exception as e:
+            t = ('Data.__str__', str(e))
         return ', '.join(t)
 
     def __eq__(self, o):

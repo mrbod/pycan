@@ -27,9 +27,7 @@ def run(ch):
     info(cnt)
     try:
         while True:
-            m = ch.read()
-            if m:
-                log(str(m))
+            if ch.read():
                 cnt += 1
             else:
                 time.sleep(0.010)

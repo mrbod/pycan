@@ -227,7 +227,10 @@ class Logger(ttk.Frame):
             end = start + self.no_of_lines
             msgs = self.messages[start:end]
             for i, msg in enumerate(msgs):
-                line = self.fmt.format(msg, start + i)
+                if isinstance(msg, str):
+                    line = msg[0:]
+                else:
+                    line = self.fmt.format(msg, start + i)
                 color_code = self.color_code(msg)
                 if color_code:
                     self.text.insert(tk.END, line, (color_code,))
@@ -330,7 +333,6 @@ class LoggerWindow(tk.Toplevel):
         msg.addr = 0
         msg.group = canmsg.GROUP_POUT
         msg.type = canmsg.TYPE_MON
-        #msg.data = [0, 0, 0x5A, 0x40, 0, 0, 0]
         msg.data = [ord(c) for c in 'abcdef']
         self.driver.write(msg)
 
