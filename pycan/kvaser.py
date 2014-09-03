@@ -216,6 +216,7 @@ class KvaserCanChannel(canchannel.CanChannel):
         canlib.canInitializeLibrary()
         self.channel = ctypes.c_int(channel)
         br = bitrate_search(bitrate)
+        self.handle = None
         if br is None:
             s = 'Unknown bitrate: {0}'.format(str(bitrate))
             raise KvaserException(s)
@@ -273,6 +274,8 @@ class KvaserCanChannel(canchannel.CanChannel):
             raise KvaserException('canSetBusParams=%d: %s' % (res, s.value))
 
     def __del__(self):
+        if self.handle is None:
+            return
         if canlib != None:
             canlib.canClose(self.handle)
 
