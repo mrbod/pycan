@@ -146,7 +146,7 @@ class Logger(ttk.Frame):
                 return msg
             self._filter = filt
 
-    def filter_stcan(self):
+    def filter_bican(self):
         pass
 
     def filter_free_form(self):
@@ -168,9 +168,9 @@ class Logger(ttk.Frame):
                 , variable=self.time_format)
         self.popup_menu.add_checkbutton(label='autoscroll', underline=0
                 , variable=self.auto_scroll)
-        self.popup_menu.add_checkbutton(label='stcan format', underline=0
+        self.popup_menu.add_checkbutton(label='bican format', underline=0
                 , variable=self.idfmt
-                , onvalue=canmsg.FORMAT_STCAN, offvalue=canmsg.FORMAT_STD
+                , onvalue=canmsg.FORMAT_BICAN, offvalue=canmsg.FORMAT_STD
                 , command=self.id_format)
         self.id_format_menu = tk.Menu(self, tearoff=0)
         self.popup_menu.add_cascade(menu=self.id_format_menu, label='id number format')
@@ -186,8 +186,8 @@ class Logger(ttk.Frame):
         self.popup_menu.add_cascade(menu=self.filter_menu, label='filter')
         self.filter_menu.add_command(label='mask/id', underline=0
                 , command=self.filter_mask_id)
-        #self.filter_menu.add_command(label='stcan', underline=0
-        #        , command=self.filter_stcan)
+        #self.filter_menu.add_command(label='bican', underline=0
+        #        , command=self.filter_bican)
         #self.filter_menu.add_command(label='free form', underline=0
         #        , command=self.filter_free_form)
         self.color_menu = tk.Menu(self, tearoff=0)

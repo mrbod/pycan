@@ -2,7 +2,7 @@
 import sys
 import canmsg
 
-canmsg.format_set(canmsg.FORMAT_STCAN)
+canmsg.format_set(canmsg.FORMAT_BICAN)
 
 m = canmsg.CanMsg()
 

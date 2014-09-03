@@ -356,7 +356,7 @@ def main():
     opts, args = parse_args()
     import interface
     import threading
-    canmsg.format_set(canmsg.FORMAT_STCAN)
+    canmsg.format_set(canmsg.FORMAT_BICAN)
 
     # Example Kvaser subclass.
     # Useful as generic logger...

@@ -2,7 +2,7 @@
 import sys
 from pycan.canmsg import canmsg
 
-canmsg.format_set(canmsg.FORMAT_STCAN)
+canmsg.format_set(canmsg.FORMAT_BICAN)
 
 def convert(f):
     for L in sys.stdin:

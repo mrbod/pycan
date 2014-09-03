@@ -33,7 +33,7 @@ def parse(cols):
     return t, cols[3], cols[4], m
 
 def main(f):
-    canmsg.format_set(canmsg.FORMAT_STCAN)
+    canmsg.format_set(canmsg.FORMAT_BICAN)
     cnt = 0
     for l in f:
         o = r.match(l)

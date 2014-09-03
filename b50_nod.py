@@ -1,5 +1,5 @@
 #!/bin/env python
-import stcan
+import bican
 import sys
 import time
 import threading
@@ -22,8 +22,8 @@ class BICAN(socketcan.SocketCanChannel):
         self.thread.start()
 
     def gen_primary(self):
-        primary = stcan.StCanMsg(extended=True)
-        primary.can_id = (stcan.GROUP_PIN << 27) | (self.can_id << 3) | stcan.TYPE_IN
+        primary = bican.StCanMsg(extended=True)
+        primary.can_id = (bican.GROUP_PIN << 27) | (self.can_id << 3) | bican.TYPE_IN
         primary.data = [0x01, 0x00]
         return primary
 
@@ -55,8 +55,8 @@ class BICAN(socketcan.SocketCanChannel):
         elif c == 'P':
             self.send_primary = True
         elif c in 'cC':
-            config = stcan.StCanMsg(extended=True)
-            config.can_id = (stcan.GROUP_CFG << 27) | (self.can_id << 3) | stcan.TYPE_IN
+            config = bican.StCanMsg(extended=True)
+            config.can_id = (bican.GROUP_CFG << 27) | (self.can_id << 3) | bican.TYPE_IN
             config.data = [0, 50, 0, 255, 255, 255]
             if c == 'C':
                 for i in range(1000):
@@ -71,15 +71,15 @@ class BICAN(socketcan.SocketCanChannel):
             ask = m.get_word(1)
             if ask == 30:
                 # node type
-                i = (stcan.GROUP_CFG << 27) | (m.addr() << 3) | stcan.TYPE_IN
+                i = (bican.GROUP_CFG << 27) | (m.addr() << 3) | bican.TYPE_IN
                 d = [0x00, 0x1E, 0x90, 0x00]
-                msg = stcan.StCanMsg(id = i, data = d, extended = m.extended)
+                msg = bican.StCanMsg(id = i, data = d, extended = m.extended)
                 self.write(msg)
             elif ask == 31:
                 # sw version
-                i = (stcan.GROUP_CFG << 27) | (m.addr() << 3) | stcan.TYPE_IN
+                i = (bican.GROUP_CFG << 27) | (m.addr() << 3) | bican.TYPE_IN
                 d = [0x00, 0x1F, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00]
-                msg = stcan.StCanMsg(id = i, data = d, extended = m.extended)
+                msg = bican.StCanMsg(id = i, data = d, extended = m.extended)
                 self.write(msg)
 
     def message_handler(self, m):
@@ -88,8 +88,8 @@ class BICAN(socketcan.SocketCanChannel):
         self.log(m)
         if not m.sent:
             if m.extended and (m.addr() <= self.can_id):
-                if m.type() == stcan.TYPE_OUT:
-                    if m.group() == stcan.GROUP_CFG:
+                if m.type() == bican.TYPE_OUT:
+                    if m.group() == bican.GROUP_CFG:
                         self.handle_config(m)
 
     def exit_handler(self):

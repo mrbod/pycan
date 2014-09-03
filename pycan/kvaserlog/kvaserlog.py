@@ -40,7 +40,7 @@ def run(ch):
         info(cnt)
 
 def main():
-    canmsg.format_set(canmsg.FORMAT_STCAN)
+    canmsg.format_set(canmsg.FORMAT_BICAN)
     channel = 0
     bitrate = 125000
     try:

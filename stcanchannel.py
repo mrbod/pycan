@@ -6,8 +6,8 @@ import threading
 import time
 import re
 
-STCAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
-STCAN_TYPE = ('OUT', 'IN', 'UD2', 'UD3', 'UD4', 'MON', 'UD6', 'UD7')
+BICAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
+BICAN_TYPE = ('OUT', 'IN', 'UD2', 'UD3', 'UD4', 'MON', 'UD6', 'UD7')
 GROUP_POUT = 0
 GROUP_PIN = 1
 GROUP_SEC = 2
@@ -69,7 +69,7 @@ flag_texts = {
         }
 
 class StCanMsg(canmsg.CanMsg):
-    _mfmt = '{0.sid:>8s} {0.stcan:^15s} {0.time:9.3f} {0.dlc}: {0.data:s}'
+    _mfmt = '{0.sid:>8s} {0.bican:^15s} {0.time:9.3f} {0.dlc}: {0.data:s}'
 
     @property
     def addr(self):
@@ -94,7 +94,7 @@ class StCanMsg(canmsg.CanMsg):
     @property
     def sgroup(self):
         try:
-            return STCAN_GROUP[self.group]
+            return BICAN_GROUP[self.group]
         except:
             return '**'
 
@@ -105,12 +105,12 @@ class StCanMsg(canmsg.CanMsg):
     @property
     def stype(self):
         try:
-            return STCAN_TYPE[self.type]
+            return BICAN_TYPE[self.type]
         except:
             return '**'
 
     @property
-    def stcan(self):
+    def bican(self):
         return '{0.sgroup:>4s},{0.saddr},{0.stype:<3s}'.format(self)
 
     def get_word(self, index):

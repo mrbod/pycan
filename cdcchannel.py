@@ -9,7 +9,7 @@ import Queue
 import canchannel
 import canmsg
 
-canmsg.format_set(canmsg.FORMAT_STCAN)
+canmsg.format_set(canmsg.FORMAT_BICAN)
 
 _canre = re.compile(r'CAN\s+(?P<channel>\d+)\s+'
                  + r'(?P<id>\w+)\s+'
@@ -17,7 +17,7 @@ _canre = re.compile(r'CAN\s+(?P<channel>\d+)\s+'
                  + r'(?P<time>\d+)'
                  + r'(?:\s+(?P<data>\S*))?')
 
-_mfmt = '{0.logtime:s} {0.channel:2d} {0.sid:>8} {0.stcan:^15s} {0.time:10d} {0.data:s}'
+_mfmt = '{0.logtime:s} {0.channel:2d} {0.sid:>8} {0.bican:^15s} {0.time:10d} {0.data:s}'
 
 class CDCMsg(canmsg.CanMsg):
     def __init__(self, **kwargs):

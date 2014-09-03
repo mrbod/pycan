@@ -1,14 +1,14 @@
 #!/bin/env python
-import stcan_master
+import bican_master
 import canmsg
 import sys
 import time
 import threading
 import kvaser
 
-class GDIN(stcan_master.StCanMaster):
+class GDIN(bican_master.StCanMaster):
     def __init__(self, channel=0, address=0):
-        stcan_master.StCanMaster.__init__(self, channel=channel, primary_size=5, address=address)
+        bican_master.StCanMaster.__init__(self, channel=channel, primary_size=5, address=address)
         self.primary.data[0] = 0x03
         self.primary.data[2] = 0x40
 
@@ -30,7 +30,7 @@ class GDIN(stcan_master.StCanMaster):
             self.send(m)
 
     def action_handler(self, c):
-        stcan_master.StCanMaster.action_handler(self, c)
+        bican_master.StCanMaster.action_handler(self, c)
         if self.state == 'TEXT':
             if c == '\x1B':
                 self.state = 'IDLE'
@@ -43,12 +43,12 @@ class GDIN(stcan_master.StCanMaster):
             self.txt = ''
 
     def message_handler(self, m):
-        stcan_master.StCanMaster.message_handler(self, m)
+        bican_master.StCanMaster.message_handler(self, m)
 
     def exit_handler(self):
-        stcan_master.StCanMaster.exit_handler(self)
+        bican_master.StCanMaster.exit_handler(self)
 
 if __name__ == '__main__':
     c = GDIN(2, 8)
-    stcan_master.main(c)
+    bican_master.main(c)
 

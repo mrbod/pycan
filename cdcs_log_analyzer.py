@@ -8,7 +8,7 @@ import canmsg
 
 os.stat_float_times(True)
 
-canmsg.format_set(canmsg.FORMAT_STCAN)
+canmsg.format_set(canmsg.FORMAT_BICAN)
 
 pattern =  r'(\S*)\s(\S*): (serial) ([RS])\s+'
 pattern += r'(\d+)\s+'
@@ -76,7 +76,7 @@ class Foo(object):
             self.operate(f)
         out('a total of {0} messages processed\n'.format(len(self.msgs)))
         for k, v in self.ids.items():
-            out('{0}: {1} messages\n'.format(v[0].stcan, len(v)))
+            out('{0}: {1} messages\n'.format(v[0].bican, len(v)))
 
 def parse(line):
     o = r.match(line)

@@ -3,7 +3,7 @@ import sys
 import os
 import time
 import canchannel
-import stcan
+import bican
 import optparse
 import udpclient
 import threading
@@ -170,8 +170,8 @@ class UDPCanChannel(canchannel.CanChannel):
             d = [0, 0, 0, 0]
             self.send_frame(0x01, d)
         else:
-            m = stcan.StCanMsg(extended = True)
-            m.can_id = (stcan.GROUP_POUT << 27) | (BUID << 3) | stcan.TYPE_OUT
+            m = bican.StCanMsg(extended = True)
+            m.can_id = (bican.GROUP_POUT << 27) | (BUID << 3) | bican.TYPE_OUT
             if self.gw_open:
                 m.data = [0x01]
             else:
@@ -220,12 +220,12 @@ class UDPCanChannel(canchannel.CanChannel):
             E = False
             ID = (frame[3] << 8) | frame[4]
             D = frame[5:-1]
-            return stcan.StCanMsg(id=ID, extended=E, data=D)
+            return bican.StCanMsg(id=ID, extended=E, data=D)
         elif frame[0] == 0xFE:
             E = True
             ID = (frame[3] << 24) | (frame[4] << 16) | (frame[5] << 8) | frame[6]
             D = frame[7:-1]
-            return stcan.StCanMsg(id=ID, extended=E, data=D)
+            return bican.StCanMsg(id=ID, extended=E, data=D)
         elif frame[0] == 0x02:
             err_type = (frame[3] << 8) | frame[4]
             if err_type == 1:
@@ -292,22 +292,22 @@ if __name__ == '__main__':
         class UCC(UDPCanChannel):
             def ask_type(self, buid):
                 self.type_asked.add(buid)
-                i = (stcan.GROUP_CFG << 27) | (buid << 3) | stcan.TYPE_OUT
-                msg = stcan.StCanMsg(id = i, extended = True)
+                i = (bican.GROUP_CFG << 27) | (buid << 3) | bican.TYPE_OUT
+                msg = bican.StCanMsg(id = i, extended = True)
                 msg.data = [0, 0x63, 0, 0x1E]
                 self.outqueue.append(msg)
 
             def ask_version(self, buid):
                 self.version_asked.add(buid)
-                i = (stcan.GROUP_CFG << 27) | (buid << 3) | stcan.TYPE_OUT
-                msg = stcan.StCanMsg(id = i, extended = True)
+                i = (bican.GROUP_CFG << 27) | (buid << 3) | bican.TYPE_OUT
+                msg = bican.StCanMsg(id = i, extended = True)
                 msg.data = [0, 0x63, 0, 0x1F]
                 self.outqueue.append(msg)
 
             def manage(self, id):
                 self.managed.add(id)
-                i = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
-                msg = stcan.StCanMsg(id = i, extended = True)
+                i = (bican.GROUP_CFG << 27) | (BUID << 3) | bican.TYPE_OUT
+                msg = bican.StCanMsg(id = i, extended = True)
                 msg.data = [0x00, 84,
                             (id >> 24) & 0xFF, (id >> 16) & 0xFF,
                             (id >> 8) & 0xFF, id & 0xFF,
@@ -315,15 +315,15 @@ if __name__ == '__main__':
                 self.outqueue.append(msg)
 
             def add_app(self, buid):
-                i = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
-                msg = stcan.StCanMsg(id = i, extended = True)
-                id = (stcan.GROUP_POUT << 27) | (buid << 3) | stcan.TYPE_OUT
+                i = (bican.GROUP_CFG << 27) | (BUID << 3) | bican.TYPE_OUT
+                msg = bican.StCanMsg(id = i, extended = True)
+                id = (bican.GROUP_POUT << 27) | (buid << 3) | bican.TYPE_OUT
                 msg.data = [0x00, 85,
                             (id >> 24) & 0xFF, (id >> 16) & 0xFF,
                             (id >> 8) & 0xFF, id & 0xFF,
                             0x01, 0x90]
                 self.outqueue.append(msg)
-                msg = stcan.StCanMsg(id = id, extended = True)
+                msg = bican.StCanMsg(id = id, extended = True)
                 msg.data = [0x00, 0x00]
                 self.app.add(msg)
 
@@ -336,7 +336,7 @@ if __name__ == '__main__':
                     buid = m.addr
                     g = m.group
                     if buid == BUID:
-                        if (g == stcan.GROUP_SEC) and (m.data[1] == 41):
+                        if (g == bican.GROUP_SEC) and (m.data[1] == 41):
                             id = (m.data[2] << 24) | (m.data[3] << 16) | (m.data[4] << 8) | m.data[5]
                             self.managed.discard(id)
                             addr = id2buid(id)
@@ -348,7 +348,7 @@ if __name__ == '__main__':
                         if m.can_id in self.managed:
                             pass
                         else:
-                            if g == stcan.GROUP_PIN:
+                            if g == bican.GROUP_PIN:
                                 if buid not in self.type_received:
                                     if buid not in self.type_asked:
                                         self.ask_type(buid)
@@ -360,7 +360,7 @@ if __name__ == '__main__':
                                     self.type_asked.discard(buid)
                                     self.manage(m.can_id)
                                     self.add_app(buid)
-                            elif g == stcan.GROUP_CFG:
+                            elif g == bican.GROUP_CFG:
                                 cmd = m.get_word(0)
                                 if cmd == 0x1E:
                                     self.type_received.add(buid)
@@ -381,15 +381,15 @@ if __name__ == '__main__':
                 if c == 'o':
                     self.gw_open = not self.gw_open
                     return
-                m = stcan.StCanMsg(extended = True)
+                m = bican.StCanMsg(extended = True)
                 if c == 'r':
-                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (bican.GROUP_CFG << 27) | (BUID << 3) | bican.TYPE_OUT
                     m.data = [0, 86, 0, 1]
                 elif c in 'u':
-                    m.can_id = (stcan.GROUP_SEC << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (bican.GROUP_SEC << 27) | (BUID << 3) | bican.TYPE_OUT
                     m.data = [0x00, 40, 0x0C, 0x00, 0x00, 0x01]
                 elif c in 'mM1!2"3#':
-                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (bican.GROUP_CFG << 27) | (BUID << 3) | bican.TYPE_OUT
                     if c == 'm':
                         m.data = [0x00, 84, 0x0C, 0x00, 0x00, 0x01, 3, 0]
                     elif c == 'M':
@@ -407,24 +407,24 @@ if __name__ == '__main__':
                     elif c == '#':
                         m.data = [0x00, 84, 0x0C, 0x00, 0x00, 0x59, 0, 0]
                 elif c in 'rR':
-                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (bican.GROUP_CFG << 27) | (BUID << 3) | bican.TYPE_OUT
                     if c == 'r':
                         m.data = [0x00, 85, 0, 0, 0, 7, 1, 0]
                     else:
                         m.data = [0x00, 85, 0, 0, 0, 7, 0, 0]
                 elif c == 'v':
-                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (bican.GROUP_CFG << 27) | (BUID << 3) | bican.TYPE_OUT
                     m.data = [0, 99, 0, 30]
                 elif c == 'V':
-                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (bican.GROUP_CFG << 27) | (BUID << 3) | bican.TYPE_OUT
                     m.data = [0, 99, 0, 31]
                 elif c == 's':
                     m.data = [0, 99, 0, 92]
                 elif c == 't':
-                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (bican.GROUP_CFG << 27) | (BUID << 3) | bican.TYPE_OUT
                     m.data = [0, 87, 0, 0, 0x05, 0xDC]
                 elif c == 'a':
-                    m.can_id = (stcan.GROUP_CFG << 27) | (BUID << 3) | stcan.TYPE_OUT
+                    m.can_id = (bican.GROUP_CFG << 27) | (BUID << 3) | bican.TYPE_OUT
                     m.data = [0, 99, 0, 93]
                 else:
                     try:

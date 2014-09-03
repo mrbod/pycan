@@ -6,8 +6,8 @@ import time
 class CanMsgException(Exception):
     pass
 
-STCAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
-STCAN_TYPE = ('OUT', 'IN', '???', '???', '???', 'MON', '???', '???')
+BICAN_GROUP = ('POUT', 'PIN', 'SEC', 'CFG')
+BICAN_TYPE = ('OUT', 'IN', '???', '???', '???', 'MON', '???', '???')
 GROUP_POUT = 0
 GROUP_PIN = 1
 GROUP_SEC = 2
@@ -17,12 +17,12 @@ TYPE_IN = 1
 TYPE_MON = 5
 
 FORMAT_STD = 0
-FORMAT_STCAN = 1
+FORMAT_BICAN = 1
 
 std_fmt = '{0.sid:>8} {0.time:9.3f} {0.dlc}: {0.data!s:s}'
-stcan_fmt = '{0.stcan:<15s} ' + std_fmt
+bican_fmt = '{0.bican:<15s} ' + std_fmt
 
-formats = [std_fmt, stcan_fmt]
+formats = [std_fmt, bican_fmt]
 
 format_index = FORMAT_STD
 msg_fmt = formats[format_index]
@@ -140,12 +140,12 @@ class CanMsg(object):
     def addr(self, a):
         if self.extended:
             if a > 0x00FFFFFF:
-                s = 'address(%d) out of range for 29-bit STCAN' % a
+                s = 'address(%d) out of range for 29-bit BICAN' % a
                 raise ValueError(s)
             self.can_id = (self.group << 27) | (a << 3) | self.type
         else:
             if a > 0x03F:
-                s = 'address(%d) out of range for 11-bit STCAN' % a
+                s = 'address(%d) out of range for 11-bit BICAN' % a
                 raise ValueError(s)
             self.can_id = (self.group << 9) | (a << 3) | self.type
 
@@ -171,7 +171,7 @@ class CanMsg(object):
 
     @property
     def sgroup(self):
-        return STCAN_GROUP[self.group]
+        return BICAN_GROUP[self.group]
 
     @property
     def type(self):
@@ -183,10 +183,10 @@ class CanMsg(object):
 
     @property
     def stype(self):
-        return STCAN_TYPE[self.type]
+        return BICAN_TYPE[self.type]
 
     @property
-    def stcan(self):
+    def bican(self):
         return '{0.sgroup:<4s} {0.stype:<3s} {0.saddr}'.format(self)
 
     @property
@@ -333,7 +333,7 @@ def main():
         if a == '-t':
             timed = True
         elif a == '-s':
-            format_set(FORMAT_STCAN)
+            format_set(FORMAT_BICAN)
         elif a == '-e':
             extended = True
     try:

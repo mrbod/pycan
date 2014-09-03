@@ -55,7 +55,7 @@ if __name__ == '__main__':
     if opts.stdout:
         f = sys.stdout
     if opts.bican:
-        canmsg.CanMsg.format_set(canmsg.FORMAT_STCAN)
+        canmsg.CanMsg.format_set(canmsg.FORMAT_BICAN)
     try:
         main(opts.count, opts.canid, opts.data, f)
     except KeyboardInterrupt:
