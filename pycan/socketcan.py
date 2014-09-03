@@ -80,7 +80,7 @@ class SocketCanChannel(canchannel.CanChannel):
             try:
                 self.socket.send(d)
                 return
-            except socket.error, e:
+            except socket.error as e:
                 if e.errno == 105:
                     # out buffer full
                     time.sleep(0.001)
