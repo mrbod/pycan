@@ -9,7 +9,7 @@ def convert(f):
         try:
             m = canmsg.CanMsg.from_biscan(L)
             yield m
-        except Exception, e:
+        except Exception as e:
             sys.stderr.write(str(e) + '\n')
 
 def main():
