@@ -7,6 +7,8 @@ setup(name=name,
         version=version,
         description='CAN tool',
         author='Per Forser',
+        author_email='per.forser@gmail.com',
+        url='file:///foo.tar.gz',
         packages=['pycan'],
         entry_points={
             'console_scripts': [
