@@ -2,8 +2,9 @@ import sys
 import logging
 import logging.handlers
 import time
-from pycan.kvaser import kvaser
-from pycan.canmsg import canmsg
+
+from pycan import kvaser
+from pycan import canmsg
 
 def create_logger(filename):
     #handler = logging.handlers.RotatingFileHandler(filename=filename, maxBytes=10000000, backupCount=100000)
@@ -62,4 +63,6 @@ def main():
         run(ch)
     except KeyboardInterrupt:
         pass
+    except kvaser.KvaserException as e:
+        sys.stderr.write(str(e) + '\n')
 
