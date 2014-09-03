@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import sys
 import re
 import time
@@ -77,14 +76,17 @@ class CanMsg(object):
             self.data = [b for b in data.data]
             self.extended = data.extended
             self.time = data.time
+            self.channel = data.channel
+            self.sent = data.sent
+            self.error_frame = data.error_frame
         else:
             self.can_id = can_id
             self.data = data
             self.extended = extended
             self.time = time
-        self.channel = channel
-        self.sent = sent
-        self.error_frame = error_frame
+            self.channel = channel
+            self.sent = sent
+            self.error_frame = error_frame
 
     @staticmethod
     def format_set(cls, fmt):
@@ -325,28 +327,4 @@ def __translator(timed):
 def translate(f, timed, extended):
     for m in __translator(timed)(f, extended):
         yield m
-
-def main():
-    timed = False
-    extended = False
-    for a in sys.argv[1:]:
-        if a == '-t':
-            timed = True
-        elif a == '-s':
-            format_set(FORMAT_BICAN)
-        elif a == '-e':
-            extended = True
-    try:
-        for m in translate(sys.stdin, timed, extended):
-            print(m)
-    except CanMsgException as e:
-        sys.stderr.write('error: ' + str(e) + '\n')
-
-if __name__ == '__main__':
-    if not sys.stdin.isatty():
-        main()
-    else:
-        m = CanMsg()
-        m.data = [1,2,3,4]
-        print(str(m))
 

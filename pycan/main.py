@@ -21,9 +21,9 @@ import os
 import re
 
 from pycan import dialog
-from pycan.canchannel import canchannel
-from pycan.kvaser import kvaser
-from pycan.canmsg import canmsg
+from pycan import canchannel
+from pycan import kvaser
+from pycan import canmsg
 
 class IDMaskDialog(tk.Toplevel):
     '''Dialog for setting of ID and MASK'''
@@ -238,7 +238,7 @@ class Logger(ttk.Frame):
     def handle_keypress(self, event):
         '''Handle keyboard input'''
         if event.keysym == 'End':
-            percentage = float(self.count - self.no_of_lines + 1) / self.count
+            percentage = float(self.count - self.no_of_lines + 1) // self.count
             self.scroll('moveto', str(percentage))
         elif event.keysym == 'Home':
             self.scroll('moveto', '0.0')
@@ -276,8 +276,8 @@ class Logger(ttk.Frame):
             start = 0.0
             end = 1.0
         else:
-            start = 1.0 * self.row / self.count
-            end = start + float(self.no_of_lines) / float(self.count)
+            start = 1.0 * self.row // self.count
+            end = start + float(self.no_of_lines) // float(self.count)
         self.scrbar.set(start, end)
         self.after(100, self.scrollbar_update)
 
@@ -409,9 +409,9 @@ class PyCan(tk.Tk):
         self.update_idletasks()
         width = self.winfo_width()
         height = self.winfo_height()
-        x = (self.winfo_screenwidth() / 2) - (width / 2)
-        y = (self.winfo_screenheight() / 2) - (height / 2)
-        #self.geometry('{0}x{1}+{2}+{3}'.format(width, height, x, y))
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry('{0}x{1}+{2}+{3}'.format(width, height, x, y))
 
     def do_open(self, *args):
         '''Open driver channel'''

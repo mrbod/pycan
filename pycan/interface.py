@@ -1,9 +1,9 @@
-#!/usr/bin/env python
 import time
 import curses
 import threading
 import sys
-import canmsg
+
+from pycan import canmsg
 
 INFO_WIN_SIZE = 10
 
@@ -63,7 +63,7 @@ class CanLogger(object):
         self.messages.append(m)
         if len(self.messages) > self.max_cnt:
             self.messages = self.messages[self.max_cnt//10:]
-        if self.id_slots.has_key(m.can_id):
+        if m.can_id in self.id_slots:
             e = self.id_slots[m.can_id]
         else:
             e = SlotEntry(m)
@@ -106,7 +106,7 @@ class CanLogger(object):
     def update_slots(self):
         self.logwin.move(0, 0)
         for id in self.ids:
-            if self.id_slots.has_key(id):
+            if id in self.id_slots:
                 e = self.id_slots[id]
                 self.logwin.addstr(self.slot_fmt.format(e))
 

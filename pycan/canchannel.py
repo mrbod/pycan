@@ -1,15 +1,13 @@
 import sys
 import time
 import threading
-try:
-    #python3
-    import queue
-except:
-    # python2
-    import Queue as queue
 import random
+if sys.version_info.major >= 3:
+    import queue
+else:
+    import Queue as queue
 
-from pycan.canmsg import canmsg
+from pycan import canmsg
 
 class DefaultLogger(object):
     def __init__(self):
@@ -150,15 +148,19 @@ class CanChannel(object):
     def exit_handler(self):
         pass
 
-def main():
+def run():
     sys.stdout.write('This is the base CAN channel class.\n')
     sys.stdout.write('Only emulated CAN message input is provided.\n')
     ch = CanChannel()
     try:
         time.sleep(0.1)
-        s = raw_input('Use curses interface? [y/n]')
+        try:
+            foo = raw_input
+        except:
+            foo = input
+        s = foo('Use curses interface? [y/n]')
         if s and (s[0] in 'yYjJ'):
-            import interface
+            from pycan import interface
             i = interface.Interface(ch)
             i.run()
         else:
@@ -175,9 +177,12 @@ def main():
         ch.close()
         sys.stdout.write('channel closed.\n')
 
-if __name__ == '__main__':
+def main():
     try:
-        main()
+        run()
     except KeyboardInterrupt:
         pass
+
+if __name__ == '__main__':
+    main()
 

@@ -7,17 +7,12 @@ setup(name=name,
         version=version,
         description='CAN tool',
         author='Per Forser',
-        packages=['pycan',
-                'pycan.canchannel',
-                'pycan.canmsg',
-                'pycan.kvaser',
-                'pycan.kvaserlog'
-                ],
+        packages=['pycan'],
         entry_points={
             'console_scripts': [
                 'pycan=pycan.main:main',
                 'biscan_conv=pycan.biscan_conv:main',
-                'kvaserlog=pycan.kvaserlog.kvaserlog:main'
+                'kvaserlog=pycan.kvaserlog:main'
                 ],
             }
         )

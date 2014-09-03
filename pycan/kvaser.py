@@ -7,8 +7,8 @@ import time
 import optparse
 import platform
 
-from pycan.canchannel import canchannel
-from pycan.canmsg import canmsg
+from pycan import canchannel
+from pycan import canmsg
 
 canMSG_RTR = 0x0001      # Message is a remote request
 canMSG_STD = 0x0002      # Message has a standard ID
