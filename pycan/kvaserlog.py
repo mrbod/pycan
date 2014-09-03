@@ -46,17 +46,18 @@ def main():
     bitrate = 125000
     try:
         tmp = int(sys.argv[1])
-        if tmp >= 10:
+        channel = tmp
+        try:
+            tmp = int(sys.argv[2])
             bitrate = tmp
-        else:
-            channel = tmp
-            try:
-                tmp = int(sys.argv[2])
-                bitrate = tmp
-            except IndexError:
-                pass
+        except IndexError:
+            pass
     except IndexError:
         pass
+    bitrate = kvaser.bitrate_as_number(bitrate)
+    if bitrate is None:
+        sys.stderr.write('Unknown bitrate: {}\n'.format(bitrate))
+        sys.exit(1)
     try:
         ch = kvaser.KvaserCanChannel(channel=channel, bitrate=bitrate)
         sys.stderr.write('channel: {}, bitrate: {}\n'.format(channel, bitrate))

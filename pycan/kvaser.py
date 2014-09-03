@@ -100,6 +100,22 @@ def bitrate_search(x):
             return v[1]
     return None
 
+def bitrate_as_number(x):
+    for k, v in bitrates.items():
+        if x == k:
+            return v[0]
+        if x == k[:-1]:
+            return v[0]
+        if x == int(k[:-1]):
+            return v[0]
+        if x == v[0]:
+            return v[0]
+        if x == str(v[0]):
+            return v[0]
+        if x == v[1]:
+            return v[0]
+    return None
+
 canWANT_EXCLUSIVE = 0x0008
 canWANT_EXTENDED = 0x0010
 canWANT_VIRTUAL = 0x0020
