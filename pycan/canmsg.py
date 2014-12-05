@@ -18,7 +18,7 @@ TYPE_MON = 5
 FORMAT_STD = 0
 FORMAT_BICAN = 1
 
-std_fmt = '{0.sid:>8} {0.time:9.3f} {0.dlc}: {0.data!s:s}'
+std_fmt = '{0.sid:>8} {0.time:11.6f} {0.dlc}: {0.data!s:s}'
 bican_fmt = '{0.bican:<15s} ' + std_fmt
 
 formats = [std_fmt, bican_fmt]
@@ -246,6 +246,21 @@ class CanMsg(object):
         return not self.__eq__(other)
 
     @classmethod
+    def from_self(cls, s, extended=False):
+        o = self_re.match(s)
+        if not o:
+            raise CanMsgException('Not a frame: ' + s)
+        time = float(o.group(2).replace(',', '.'))
+        can_id = int(o.group(1), 16)
+        d = o.group(3)
+        if len(d) > 0:
+            d = d.split(', ')
+            data = [int(x, 16) for x in d]
+        else:
+            data = []
+        return cls(can_id=can_id, time=time, data=data, extended=extended)
+
+    @classmethod
     def from_biscan(cls, s, extended=False):
         o = biscan_re.match(s)
         if not o:
@@ -288,9 +303,10 @@ class CanMsg(object):
 
 vector_re = re.compile(r'\s*(\d+\.\d+)\s+(\d+)\s+([0-9A-Fa-f]+)x\s+([TR])x\s+d\s(\d+)((?:\s+[0-9A-F]{2})*)\s+')
 biscan_re = re.compile(r'(\d+)\s+\d+\s+(\d+,\d+)\s+\w+\s+([0-9A-Fa-f]+)\s+\d\s+\[\s*([^]]*)\]')
+self_re = re.compile(r'(?:\w+\s+\w+\s+[0-9a-fA-F]+\s+)?([0-9a-fA-F]+)\s+(\S+)\s+\d:\s*((?:[0-9A-Fa-f]{2}(?:, [0-9A-Fa-f]{2}){0,7})?)')
 
 def __translate(f, extended):
-    trs = (CanMsg.from_vector, CanMsg.from_biscan)
+    trs = (CanMsg.from_vector, CanMsg.from_biscan, CanMsg.from_self)
     tr = None
     translator_found = False
     for i, l in enumerate(f):

@@ -24,8 +24,7 @@ class CanChannel(object):
         self.logger = kwargs.pop('logger', None)
         if self.logger is None:
             self.logger = DefaultLogger()
-        self.starttime = 0
-        self.starttime = self.gettime()
+        self.starttime = self._gettime()
         self.read_cnt = 0
         self.write_cnt = 0
         self._dT = 0.0
@@ -48,56 +47,59 @@ class CanChannel(object):
             self.write_thread.start()
             self.read_thread.start()
     
-    def _writer(self):
+    def _thread_logic(self, func):
         try:
             while self.running:
-                try:
-                    m = self.write_queue.get(True, 1)
-                    if self.running:
-                        self.do_write(m)
-                except queue.Empty:
-                    pass
+                func()
         except Exception as e:
             self.log(str(e) + '\n')
             sys.exit()
         finally:
             self.running = False
+
+    def _writer(self):
+        def logic():
+            try:
+                m = self.write_queue.get(True, 1)
+                if self.running:
+                    self.do_write(m)
+            except queue.Empty:
+                pass
+        self._thread_logic(logic)
 
     def _reader(self):
-        try:
-            while self.running:
-                m = self.do_read()
-                if m and self.running:
-                    self.read_queue.put(m)
-        except Exception as e:
-            self.log(str(e) + '\n')
-            sys.exit()
-        finally:
-            self.running = False
+        def logic():
+            m = self.do_read()
+            if m and self.running:
+                self.read_queue.put(m)
+        self._thread_logic(logic)
 
     def _message(self):
-        try:
-            while self.running:
-                try:
-                    m = self.msg_handler_queue.get(True, 1)
-                    if self.running:
-                        self.message_handler(m)
-                except queue.Empty:
-                    pass
-        except Exception as e:
-            self.log(str(e) + '\n')
-            sys.exit()
-        finally:
-            self.running = False
+        def logic():
+            try:
+                m = self.msg_handler_queue.get(True, 1)
+                if self.running:
+                    self.message_handler(m)
+            except queue.Empty:
+                pass
+        self._thread_logic(logic)
 
     def open(self):
-        self.starttime = time.time()
+        self.starttime = self._gettime()
 
     def close(self):
         self.running = False
 
+    def _gettime(self):
+        return time.time()
+
+    def _normalize_time(self, t):
+        if t < self.starttime:
+            self.starttime = 0.0
+        return t - self.starttime
+
     def gettime(self):
-        return time.time() - self.starttime
+        return self._normalize_time(self._gettime())
 
     def do_read(self):
         time.sleep(self._dT)

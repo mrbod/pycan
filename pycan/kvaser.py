@@ -135,6 +135,8 @@ canDRIVER_OFF = 0
 canOK = 0
 canERR_NOMSG = -2
 
+canIOCTL_SET_TIMER_SCALE = 6
+
 # (bitrate, tseg1, tseg2, sjw, nosamp, syncmode)
 bitrate_settings = {
         canBITRATE_1M: (1000000, 4, 3, 1, 1, 0),
@@ -233,6 +235,8 @@ class KvaserCanChannel(canchannel.CanChannel):
     def __init__(self, channel=0, bitrate=canBITRATE_125K, silent=False, **kwargs):
         canlib.canInitializeLibrary()
         self.channel = ctypes.c_int(channel)
+        timer_res = ctypes.c_uint(1) # usecs
+        self.timediv = 1.0e6 / timer_res.value
         br = bitrate_search(bitrate)
         self.handle = None
         if br is None:
@@ -255,6 +259,11 @@ class KvaserCanChannel(canchannel.CanChannel):
             s = ctypes.create_string_buffer(128)
             canlib.canGetErrorText(res, s, 128)
             raise KvaserException('canSetBusParams=%d: %s' % (res, s.value))
+        res = canlib.canIoCtl(self.handle, canIOCTL_SET_TIMER_SCALE, ctypes.byref(timer_res), 4)
+        if res != canOK:
+            s = ctypes.create_string_buffer(128)
+            canlib.canGetErrorText(res, s, 128)
+            raise KvaserException('canIoCtl=%d: %s' % (res, s.value))
         res = canlib.canBusOn(self.handle)
         if res != canOK:
             s = ctypes.create_string_buffer(128)
@@ -278,10 +287,10 @@ class KvaserCanChannel(canchannel.CanChannel):
                 raise KvaserException(fmt % (res, s.value))
         super(KvaserCanChannel, self).__init__(**kwargs)
 
-    def gettime(self):
+    def _gettime(self):
         time = ctypes.c_uint()
         canReadTimer(self.handle, ctypes.byref(time))
-        return time.value / 1000.0
+        return time.value / self.timediv
 
     def set_baud(self, handle, baud):
         settings = bitrate_settings[baud]
@@ -306,7 +315,7 @@ class KvaserCanChannel(canchannel.CanChannel):
         res = canlib.canRead(self.handle, ctypes.byref(id), data
                 , ctypes.byref(dlc), ctypes.byref(flags), ctypes.byref(T))
         if res == canOK:
-            t = T.value / 1000.0
+            t = self._normalize_time(T.value / self.timediv)
             if flags.value & canMSG_ERROR_FRAME:
                 m = canmsg.CanMsg(error_frame=True)
                 return m
