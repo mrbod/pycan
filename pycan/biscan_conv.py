@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys
-from pycan.canmsg import canmsg
+from pycan import canmsg
 
 canmsg.format_set(canmsg.FORMAT_BICAN)
 
