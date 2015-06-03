@@ -1,7 +1,7 @@
 from setuptools import setup
 
 name = 'pycan'
-version = '1.0.2'
+version = '1.1.0'
 
 setup(name=name,
         version=version,
@@ -14,7 +14,8 @@ setup(name=name,
             'console_scripts': [
                 'pycan=pycan.main:main',
                 'biscan_conv=pycan.biscan_conv:main',
-                'kvaserlog=pycan.kvaserlog:main'
+                'kvaserlog=pycan.kvaserlog:main',
+                'kvasersend=pycan.kvasersend:main'
                 ],
             }
         )
