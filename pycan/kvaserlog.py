@@ -115,6 +115,8 @@ def main():
             , help='select CAN channel, default=%(default)s')
     p.add_argument('-b', '--bitrate', type=int, default=125000
             , help='select CAN bitrate, default=%(default)s')
+    p.add_argument('-s', '--silent', action='store_true'
+            , help='open channel in silent mode')
     p.add_argument('logfile', default='', nargs='?'
             , help='file name for rotating log, default=%(default)s')
     args = p.parse_args()
@@ -134,7 +136,7 @@ def main():
     try:
         logger = Logger(args.logfile)
         ch = kvaser.KvaserCanChannel(channel=args.channel, bitrate=bitrate,
-                logger=logger)
+                silent=args.silent, logger=logger)
         s = 'channel: {}, bitrate: {}\n'.format(args.channel, bitrate)
         info(s)
         run(ch)
