@@ -1,7 +1,7 @@
 from setuptools import setup
 
 name = 'pycan'
-version = '1.1.1'
+version = '1.1.2'
 
 setup(name=name,
         version=version,
