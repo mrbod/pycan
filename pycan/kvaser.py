@@ -3,8 +3,6 @@ import sys
 import ctypes
 import time
 import optparse
-import interface
-import threading
 
 from pycan import canchannel
 from pycan import canmsg
@@ -393,6 +391,8 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    import interface
+    import threading
     # Example Kvaser subclass.
     # Useful as generic logger...
     class KCC(KvaserCanChannel):
