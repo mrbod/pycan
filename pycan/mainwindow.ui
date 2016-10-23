@@ -16,15 +16,13 @@
   <widget class="QWidget" name="centralWidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QTextEdit" name="textEdit">
-      <property name="undoRedoEnabled">
-       <bool>false</bool>
-      </property>
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
-      <property name="acceptRichText">
-       <bool>false</bool>
+     <widget class="QPlainTextEdit" name="textEdit">
+      <property name="font">
+       <font>
+        <family>Monospace</family>
+        <pointsize>12</pointsize>
+        <kerning>false</kerning>
+       </font>
       </property>
      </widget>
     </item>
@@ -44,6 +42,7 @@
      <string>&amp;File</string>
     </property>
     <addaction name="action_open"/>
+    <addaction name="action_close"/>
     <addaction name="separator"/>
     <addaction name="action_exit"/>
    </widget>
@@ -64,6 +63,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+O</string>
+   </property>
+  </action>
+  <action name="action_close">
+   <property name="text">
+    <string>&amp;Close</string>
    </property>
   </action>
  </widget>

@@ -1,37 +1,171 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import sys
+import time
 from PyQt4 import QtGui, QtCore
 import mainwindow
 import canchannel
 
-class Main(QtGui.QMainWindow, canchannel.CanChannel):
+class SlotEntry(object):
+    def __init__(self, msg):
+        self.msg = msg
+        self.cnt = 0
+        self.dt = 0.0
+
+    def update(self, msg):
+        self.dt = msg.time - self.msg.time
+        self.msg = msg
+        self.cnt += 1
+
+class CanLogger(object):
+    slot_fmt = '{0.dt:7.3f} {0.cnt:06d} {0.msg:70s}\n'
+
+    def __init__(self, logwin, static):
+        self.messages = []
+        self.max_cnt = 100000
+        self.id_slots = {}
+        self.ids = []
+        self.curline = 0
+        self.last_printed = -1
+        self.logwin = logwin
+        self.sequencial = not static
+
+    def stop(self):
+        pass
+
+    def save(self, filename):
+        f = file(filename, 'w')
+        try:
+            for m in self.messages:
+                f.write('{0}\n'.format(m))
+        finally:
+            f.close()
+        
+    def clear(self):
+        self.messages = []
+        self.id_slots = {}
+        self.ids = []
+        self.curline = 0
+        self.last_printed = -1
+        self.logwin.clear()
+        self.update(0)
+
+    def log(self, m):
+        self.messages.append(m)
+        if len(self.messages) > self.max_cnt:
+            self.messages = self.messages[self.max_cnt//10:]
+        if m.can_id in self.id_slots:
+            e = self.id_slots[m.can_id]
+        else:
+            e = SlotEntry(m)
+            self.id_slots[m.can_id] = e
+            self.ids.append(m.can_id)
+            self.ids.sort()
+        e.update(m)
+        self.curline = self.curline + 1
+        
+    def sequencial_toggle(self):
+        self.sequencial = not self.sequencial
+        self.last_printed = len(self.messages) - self.my
+        self.logwin.clear()
+
+    def home(self):
+        L = self.my
+        self.update(L)
+        return L
+
+    def update_sequential(self, line_count, showline):
+        if showline >= 0:
+            L = len(self.messages)
+            if showline > L:
+                showline = L
+            if showline == self.last_printed:
+                return
+            self.last_printed = showline
+            end = showline
+            start = end - line_count
+        else:
+            end = len(self.messages)
+            if end - self.last_printed > line_count:
+                start = end - line_count
+            else:
+                start = self.last_printed
+            self.last_printed = end
+        if start < 0:
+            start = 0
+        txt = '\n'.join(str(m) for m in self.messages[start:end])
+        self.logwin.set_text(txt)
+
+    def update_slots(self):
+        self.logwin.move(0, 0)
+        for id in self.ids:
+            if id in self.id_slots:
+                e = self.id_slots[id]
+                self.logwin.addstr(self.slot_fmt.format(e))
+
+    def update(self, line_count, showline=-1):
+        if self.sequencial:
+            self.update_sequential(line_count, showline)
+        else:
+            self.update_slots()
+
+class Main(QtGui.QMainWindow):
     def __init__(self):
         super(Main, self).__init__()
         self.ui = mainwindow.Ui_MainWindow()
         self.ui.setupUi(self)
         self.show()
-        self.open()
+        self.line_count = self.get_line_count()
+        self.logger = CanLogger(self, False)
+        self.ch = None
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.timeout)
+        self.timer.setSingleShot(True)
+        self.timer.start(1000)
+
+    def get_line_count(self):
+        font_height = self.ui.textEdit.fontMetrics().height()
+        window_height = self.ui.textEdit.geometry().height()
+        return window_height // font_height
+
+    def set_text(self, s):
+        self.ui.textEdit.setPlainText(s)
+
+    def addstr(self, s):
+        self.ui.textEdit.insertPlainText(str(s))
 
     @QtCore.pyqtSlot()
     def on_action_exit_triggered(self):
-        #QtGui.qApp.quit()
         self.close()
 
     @QtCore.pyqtSlot()
     def on_action_open_triggered(self):
         self.log('open')
 
+    @QtCore.pyqtSlot()
+    def on_action_close_triggered(self):
+        self.log('close')
+
     def log(self, msg):
         self.ui.textEdit.insertPlainText(str(msg))
         self.ui.textEdit.insertPlainText('\n')
 
+    def timeout(self):
+        if self.ch is None:
+            print 'creating channel'
+            self.ch = canchannel.CanChannel(logger=self.logger)
+            self.ch.open()
+        while self.ch.read():
+            pass
+        #self.logger.update(self.get_line_count() - 1 , len(self.logger.messages))
+        self.logger.update(self.get_line_count() - 1 , 25)
+        self.timer.start(100)
+
 def main():
     app = QtGui.QApplication(sys.argv)
     mw = Main()
-    #ch = canchannel.CanChannel(logger=mw)
-    #ch.open()
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
     main()
+
