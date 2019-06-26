@@ -5,7 +5,7 @@ from pycan import canmsg
 canmsg.format_set(canmsg.FORMAT_BICAN)
 
 def convert(f):
-    for L in sys.stdin:
+    for L in f:
         try:
             m = canmsg.CanMsg.from_biscan(L)
             yield m
